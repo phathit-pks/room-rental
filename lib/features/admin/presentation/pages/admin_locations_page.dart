@@ -30,11 +30,46 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   bool checkingAdminAccess = true;
   bool hasAdminAccess = false;
   String? loginError;
+  bool loadingListingStats = true;
+  int? totalListings;
+  int? publishedListings;
+  int? pendingListings;
 
   @override
   void initState() {
     super.initState();
     _verifyAdminAccess();
+    _loadListingStats();
+  }
+
+  Future<void> _loadListingStats() async {
+    try {
+      final client = Supabase.instance.client;
+      final totalResponse = await client
+          .from('scraped_listings')
+          .select('id')
+          .neq('status', 'rejected')
+          .count(CountOption.exact);
+      final approvedResponse = await client
+          .from('scraped_listings')
+          .select('id')
+          .eq('status', 'approved')
+          .count(CountOption.exact);
+      final pendingResponse = await client
+          .from('scraped_listings')
+          .select('id')
+          .eq('status', 'pending_review')
+          .count(CountOption.exact);
+      if (!mounted) return;
+      setState(() {
+        totalListings = totalResponse.count;
+        publishedListings = approvedResponse.count;
+        pendingListings = pendingResponse.count;
+        loadingListingStats = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => loadingListingStats = false);
+    }
   }
 
   Future<void> _verifyAdminAccess() async {
@@ -847,6 +882,51 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
                     icon: Icons.home_outlined,
                     label: 'บ้าน',
                     value: store.villageCount,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'ภาพรวมห้องพัก',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      setState(() => loadingListingStats = true);
+                      _loadListingStats();
+                    },
+                    tooltip: 'รีเฟรช',
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  _StatCard(
+                    icon: Icons.meeting_room_outlined,
+                    label: 'ห้องพักทั้งหมด',
+                    value: totalListings,
+                    loading: loadingListingStats,
+                  ),
+                  _StatCard(
+                    icon: Icons.check_circle_outline,
+                    label: 'เผยแพร่แล้ว',
+                    value: publishedListings,
+                    loading: loadingListingStats,
+                  ),
+                  _StatCard(
+                    icon: Icons.hourglass_empty_outlined,
+                    label: 'รอตรวจสอบ',
+                    value: pendingListings,
+                    loading: loadingListingStats,
                   ),
                 ],
               ),
@@ -1762,10 +1842,12 @@ class _StatCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.loading = false,
   });
   final IconData icon;
   final String label;
-  final int value;
+  final int? value;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1782,10 +1864,18 @@ class _StatCard extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '$value',
-              style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-            ),
+            loading
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    '${value ?? '-'}',
+                    style: const TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
             Text(label, style: const TextStyle(color: Color(0xFF64748B))),
           ],
         ),
