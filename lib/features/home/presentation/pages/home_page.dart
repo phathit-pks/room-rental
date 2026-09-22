@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:room_rental/core/utils/relative_date_formatter.dart';
+import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/auth/presentation/widgets/client_auth_button.dart';
 import 'package:room_rental/features/favorites/data/favorite_store.dart';
 import 'package:room_rental/features/listings/data/repositories/listing_repository.dart';
@@ -84,6 +85,17 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _clearSearch() {
+    setState(() {
+      _isSearchMode = false;
+      _usingCurrentLocation = false;
+      _province = null;
+      _district = null;
+      _village = null;
+      _listings = _loadRecommendations();
+    });
+  }
+
   void _changePage(int page) {
     setState(() {
       _listings = _repository.searchPage(
@@ -121,6 +133,7 @@ class _HomePageState extends State<HomePage> {
                 child: _HeroSection(
                   key: _searchSectionKey,
                   onSearch: _search,
+                  onClear: _clearSearch,
                   advertisements: _advertisements,
                 ),
               ),
@@ -333,10 +346,12 @@ class _HeroSection extends StatelessWidget {
   const _HeroSection({
     super.key,
     required this.onSearch,
+    required this.onClear,
     required this.advertisements,
   });
 
   final void Function(String?, String?, String?) onSearch;
+  final VoidCallback onClear;
   final Future<List<RentalListing>> advertisements;
 
   @override
@@ -363,7 +378,7 @@ class _HeroSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _SearchBox(onSearch: onSearch),
+                    _SearchBox(onSearch: onSearch, onClear: onClear),
                     const SizedBox(height: 22),
                     const Wrap(
                       spacing: 22,
@@ -785,9 +800,10 @@ class _PromotionBanner extends StatelessWidget {
 }
 
 class _SearchBox extends StatefulWidget {
-  const _SearchBox({required this.onSearch});
+  const _SearchBox({required this.onSearch, required this.onClear});
 
   final void Function(String?, String?, String?) onSearch;
+  final VoidCallback onClear;
 
   @override
   State<_SearchBox> createState() => _SearchBoxState();
@@ -852,6 +868,18 @@ class _SearchBoxState extends State<_SearchBox> {
       ),
     );
     widget.onSearch(_province, _district, _village);
+  }
+
+  void _clear() {
+    setState(() {
+      _province = null;
+      _district = null;
+      _village = null;
+    });
+    widget.onClear();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('ล้างตัวกรองแล้ว')));
   }
 
   @override
@@ -957,6 +985,11 @@ class _SearchBoxState extends State<_SearchBox> {
                 icon: const Icon(Icons.gesture),
                 label: const Text('วาดพื้นที่ค้นหาบนแผนที่'),
               ),
+              TextButton.icon(
+                onPressed: _clear,
+                icon: const Icon(Icons.restart_alt),
+                label: const Text('ล้างค่า'),
+              ),
             ],
           ),
         ],
@@ -983,6 +1016,7 @@ class _LocationDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
+      key: ValueKey('$label:$value'),
       initialValue: value,
       isExpanded: true,
       decoration: InputDecoration(
@@ -1540,10 +1574,10 @@ class _RoomCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (room.mapUrl?.isNotEmpty == true)
+                      if (SafeExternalUri.https(room.mapUrl) != null)
                         TextButton.icon(
                           onPressed: () => launchUrl(
-                            Uri.parse(room.mapUrl!),
+                            SafeExternalUri.https(room.mapUrl)!,
                             mode: LaunchMode.externalApplication,
                           ),
                           icon: const Icon(Icons.directions_outlined),

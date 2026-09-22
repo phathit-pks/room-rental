@@ -159,6 +159,8 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       builder: (_) => const _AddApartmentDialog(),
     );
     if (saved == true && mounted) {
+      _loadListingStats();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('เพิ่ม Apartment และเผยแพร่แล้ว')),
       );
@@ -178,23 +180,17 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   }
 
   Future<void> _importListingExcels() async {
-    final result = await picker.FilePicker.pickFiles(
+    final files = await picker.FilePicker.pickFiles(
       type: picker.FileType.custom,
       allowedExtensions: ['xlsx'],
-      withData: true,
-      allowMultiple: true,
     );
-    if (result == null) return;
+    if (files.isEmpty) return;
     setState(() => importingListings = true);
     var skipped = 0;
     final items = <Map<String, dynamic>>[];
     try {
-      for (final file in result.files) {
-        if (file.bytes == null) {
-          skipped++;
-          continue;
-        }
-        final workbook = Excel.decodeBytes(file.bytes!);
+      for (final file in files) {
+        final workbook = Excel.decodeBytes(await file.readAsBytes());
         for (final sheet in workbook.tables.values) {
           if (sheet.rows.length < 2) continue;
           final headers = sheet.rows.first
@@ -292,11 +288,12 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       final imported = await const ScrapedListingRepository().saveManyDrafts(
         items,
       );
+      _loadListingStats();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'นำเข้าที่พักสำเร็จ $imported รายการจาก ${result.files.length} ไฟล์'
+            'นำเข้าที่พักสำเร็จ $imported รายการจาก ${files.length} ไฟล์'
             '${skipped > 0 ? ' • ข้าม $skipped แถว' : ''}',
           ),
         ),
@@ -316,15 +313,14 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   }
 
   Future<void> _importExcel() async {
-    final result = await picker.FilePicker.pickFiles(
+    final file = await picker.FilePicker.pickFile(
       type: picker.FileType.custom,
       allowedExtensions: ['xlsx'],
-      withData: true,
     );
-    if (result == null || result.files.single.bytes == null) return;
+    if (file == null) return;
 
     try {
-      final workbook = Excel.decodeBytes(result.files.single.bytes!);
+      final workbook = Excel.decodeBytes(await file.readAsBytes());
       if (workbook.tables.isEmpty) throw const FormatException('ไม่พบ Sheet');
       final sheet = workbook.tables.values.first;
       if (sheet.rows.isEmpty) throw const FormatException('ไม่มีข้อมูล');
@@ -388,14 +384,13 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   }
 
   Future<void> _importDistrictExcel(String provinceName) async {
-    final result = await picker.FilePicker.pickFiles(
+    final file = await picker.FilePicker.pickFile(
       type: picker.FileType.custom,
       allowedExtensions: ['xlsx'],
-      withData: true,
     );
-    if (result == null || result.files.single.bytes == null) return;
+    if (file == null) return;
     try {
-      final workbook = Excel.decodeBytes(result.files.single.bytes!);
+      final workbook = Excel.decodeBytes(await file.readAsBytes());
       if (workbook.tables.isEmpty) throw const FormatException('ไม่พบ Sheet');
       final sheet = workbook.tables.values.first;
       if (sheet.rows.isEmpty) throw const FormatException('ไม่มีข้อมูล');
@@ -440,14 +435,13 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
     String provinceName,
     String districtName,
   ) async {
-    final result = await picker.FilePicker.pickFiles(
+    final file = await picker.FilePicker.pickFile(
       type: picker.FileType.custom,
       allowedExtensions: ['xlsx'],
-      withData: true,
     );
-    if (result == null || result.files.single.bytes == null) return;
+    if (file == null) return;
     try {
-      final workbook = Excel.decodeBytes(result.files.single.bytes!);
+      final workbook = Excel.decodeBytes(await file.readAsBytes());
       if (workbook.tables.isEmpty) throw const FormatException('ไม่พบ Sheet');
       final sheet = workbook.tables.values.first;
       if (sheet.rows.isEmpty) throw const FormatException('ไม่มีข้อมูล');
@@ -1125,8 +1119,8 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
   String? province;
   String? district;
   String? village;
-  picker.PlatformFile? thumbnail;
-  final List<picker.PlatformFile> galleryImages = [];
+  CompressedThumbnail? thumbnail;
+  final List<CompressedThumbnail> galleryImages = [];
   bool thumbnailWasCompressed = false;
   bool processingThumbnail = false;
   bool processingGallery = false;
@@ -1134,29 +1128,22 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
   String? error;
 
   Future<void> _pickThumbnail() async {
-    final result = await picker.FilePicker.pickFiles(
+    final selected = await picker.FilePicker.pickFile(
       type: picker.FileType.image,
-      withData: true,
-      allowMultiple: false,
     );
-    if (result == null || result.files.single.bytes == null || !mounted) return;
+    if (selected == null || !mounted) return;
     setState(() {
       processingThumbnail = true;
       error = null;
     });
     try {
-      final selected = result.files.single;
       final compressed = ThumbnailCompressor.compress(
-        selected.bytes!,
+        await selected.readAsBytes(),
         selected.name,
       );
       if (!mounted) return;
       setState(() {
-        thumbnail = picker.PlatformFile(
-          name: compressed.fileName,
-          size: compressed.bytes.lengthInBytes,
-          bytes: compressed.bytes,
-        );
+        thumbnail = compressed;
         thumbnailWasCompressed = compressed.wasCompressed;
       });
     } catch (exception) {
@@ -1172,13 +1159,10 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       setState(() => error = 'อัปโหลดรูปภายในได้ไม่เกิน 4 รูป');
       return;
     }
-    final result = await picker.FilePicker.pickFiles(
+    final selected = await picker.FilePicker.pickFiles(
       type: picker.FileType.image,
-      withData: true,
-      allowMultiple: true,
     );
-    if (result == null || !mounted) return;
-    final selected = result.files.where((file) => file.bytes != null).toList();
+    if (selected.isEmpty || !mounted) return;
     if (selected.length > remaining) {
       setState(() => error = 'เลือกเพิ่มได้อีกเพียง $remaining รูป');
       return;
@@ -1188,15 +1172,10 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       error = null;
     });
     try {
-      final compressedFiles = <picker.PlatformFile>[];
+      final compressedFiles = <CompressedThumbnail>[];
       for (final file in selected) {
-        final compressed = ThumbnailCompressor.compress(file.bytes!, file.name);
         compressedFiles.add(
-          picker.PlatformFile(
-            name: compressed.fileName,
-            size: compressed.bytes.lengthInBytes,
-            bytes: compressed.bytes,
-          ),
+          ThumbnailCompressor.compress(await file.readAsBytes(), file.name),
         );
       }
       if (mounted) setState(() => galleryImages.addAll(compressedFiles));
@@ -1234,16 +1213,15 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       );
       final mapLocation = GoogleMapsLocation.tryParse(mapController.text);
       String? thumbnailUrl;
-      if (thumbnail?.bytes != null) {
+      if (thumbnail != null) {
         thumbnailUrl = await repository.uploadThumbnail(
-          bytes: thumbnail!.bytes!,
-          fileName: thumbnail!.name,
+          bytes: thumbnail!.bytes,
+          fileName: thumbnail!.fileName,
         );
       }
       final galleryUrls = await repository.uploadGalleryImages(
         galleryImages
-            .where((file) => file.bytes != null)
-            .map((file) => (bytes: file.bytes!, fileName: file.name))
+            .map((file) => (bytes: file.bytes, fileName: file.fileName))
             .toList(),
       );
       final parsed = <String, dynamic>{
@@ -1336,7 +1314,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                               Text('กำลังบีบอัดรูป...'),
                             ],
                           )
-                        : thumbnail?.bytes == null
+                        : thumbnail == null
                         ? const Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1355,7 +1333,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                         : ClipRRect(
                             borderRadius: BorderRadius.circular(15),
                             child: Image.memory(
-                              thumbnail!.bytes!,
+                              thumbnail!.bytes,
                               fit: BoxFit.cover,
                             ),
                           ),
@@ -1371,7 +1349,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                       icon: const Icon(Icons.delete_outline),
                       label: Text(
                         '${thumbnailWasCompressed ? 'บีบอัดแล้ว • ' : ''}'
-                        '${(thumbnail!.size / 1024).ceil()} KB • ลบรูป',
+                        '${(thumbnail!.bytes.lengthInBytes / 1024).ceil()} KB • ลบรูป',
                       ),
                     ),
                   ),
@@ -1404,7 +1382,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.memory(
-                              file.bytes!,
+                              file.bytes,
                               width: 118,
                               height: 86,
                               fit: BoxFit.cover,
@@ -1438,7 +1416,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                                   vertical: 2,
                                 ),
                                 child: Text(
-                                  '${(file.size / 1024).ceil()} KB',
+                                  '${(file.bytes.lengthInBytes / 1024).ceil()} KB',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 11,

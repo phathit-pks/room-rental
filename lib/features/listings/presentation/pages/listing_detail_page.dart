@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -272,57 +273,58 @@ class ListingDetailPage extends StatelessWidget {
     ],
   );
 
-  Widget _contactCard(BuildContext context) => Card(
-    elevation: 0,
-    color: const Color(0xFFF8FAFC),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
-      side: const BorderSide(color: Color(0xFFE2E8F0)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'ติดต่อที่พัก',
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          if (room.contactPhone?.isNotEmpty == true)
-            FilledButton.icon(
-              onPressed: () => launchUrl(Uri.parse('tel:${room.contactPhone}')),
-              icon: const Icon(Icons.phone_outlined),
-              label: Text(room.contactPhone!),
-            )
-          else
-            const Text('ยังไม่มีเบอร์โทร กรุณาติดต่อผ่านลิงก์ต้นทาง'),
-          if (room.mapUrl?.isNotEmpty == true) ...[
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () => launchUrl(
-                Uri.parse(room.mapUrl!),
-                mode: LaunchMode.externalApplication,
-              ),
-              icon: const Icon(Icons.directions_outlined),
-              label: const Text('นำทางด้วย Google Maps'),
-            ),
-          ],
-          if (room.sourceUrl?.isNotEmpty == true) ...[
-            const SizedBox(height: 10),
-            TextButton.icon(
-              onPressed: () => launchUrl(
-                Uri.parse(room.sourceUrl!),
-                mode: LaunchMode.externalApplication,
-              ),
-              icon: const Icon(Icons.open_in_new),
-              label: const Text('ดูประกาศต้นทาง'),
-            ),
-          ],
-        ],
+  Widget _contactCard(BuildContext context) {
+    final phoneUri = SafeExternalUri.telephone(room.contactPhone);
+    final mapUri = SafeExternalUri.https(room.mapUrl);
+    final sourceUri = SafeExternalUri.https(room.sourceUrl);
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFF8FAFC),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
-    ),
-  );
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'ติดต่อที่พัก',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            if (phoneUri != null)
+              FilledButton.icon(
+                onPressed: () => launchUrl(phoneUri),
+                icon: const Icon(Icons.phone_outlined),
+                label: Text(room.contactPhone!),
+              )
+            else
+              const Text('ยังไม่มีเบอร์โทร กรุณาติดต่อผ่านลิงก์ต้นทาง'),
+            if (mapUri != null) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    launchUrl(mapUri, mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.directions_outlined),
+                label: const Text('นำทางด้วย Google Maps'),
+              ),
+            ],
+            if (sourceUri != null) ...[
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () =>
+                    launchUrl(sourceUri, mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('ดูประกาศต้นทาง'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _contactSidebar(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,

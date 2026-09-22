@@ -65,16 +65,12 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<void> _pickThumbnail() async {
-    final result = await picker.FilePicker.pickFiles(
-      type: picker.FileType.image,
-      withData: true,
-    );
-    final file = result?.files.single;
-    if (file?.bytes == null) return;
+    final file = await picker.FilePicker.pickFile(type: picker.FileType.image);
+    if (file == null) return;
     try {
+      final bytes = await file.readAsBytes();
       setState(
-        () =>
-            _thumbnail = ThumbnailCompressor.compress(file!.bytes!, file.name),
+        () => _thumbnail = ThumbnailCompressor.compress(bytes, file.name),
       );
     } catch (error) {
       setState(() => _error = error.toString());
@@ -87,13 +83,10 @@ class _ContactPageState extends State<ContactPage> {
       setState(() => _error = 'อัปโหลดรูปภายในได้ไม่เกิน 4 รูป');
       return;
     }
-    final result = await picker.FilePicker.pickFiles(
+    final files = await picker.FilePicker.pickFiles(
       type: picker.FileType.image,
-      withData: true,
-      allowMultiple: true,
     );
-    if (result == null) return;
-    final files = result.files.where((file) => file.bytes != null).toList();
+    if (files.isEmpty) return;
     if (files.length > remaining) {
       setState(() => _error = 'เลือกเพิ่มได้อีกเพียง $remaining รูป');
       return;
@@ -103,9 +96,12 @@ class _ContactPageState extends State<ContactPage> {
       _error = null;
     });
     try {
-      final compressed = files
-          .map((file) => ThumbnailCompressor.compress(file.bytes!, file.name))
-          .toList();
+      final compressed = <CompressedThumbnail>[];
+      for (final file in files) {
+        compressed.add(
+          ThumbnailCompressor.compress(await file.readAsBytes(), file.name),
+        );
+      }
       if (mounted) setState(() => _galleryImages.addAll(compressed));
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -126,6 +122,11 @@ class _ContactPageState extends State<ContactPage> {
       _error = null;
     });
     try {
+      if (await _repository.hasClientSubmission()) {
+        throw const FormatException(
+          'บัญชีนี้ลงประกาศครบ 1 ห้องแล้ว ไม่สามารถเพิ่มห้องใหม่ได้',
+        );
+      }
       String? thumbnailUrl;
       if (_thumbnail != null) {
         thumbnailUrl = await _repository.uploadThumbnail(
@@ -193,6 +194,11 @@ class _ContactPageState extends State<ContactPage> {
         },
       );
       if (mounted) setState(() => _submitted = true);
+    } on PostgrestException catch (exception) {
+      final message = exception.code == '23505'
+          ? 'บัญชีนี้ลงประกาศครบ 1 ห้องแล้ว ไม่สามารถเพิ่มห้องใหม่ได้'
+          : exception.toString();
+      if (mounted) setState(() => _error = message);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
+import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -120,6 +121,8 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
     }.toList();
     final mapUrl = (item['map_url'] ?? parsed['map_url'])?.toString();
     final sourceUrl = item['source_url']?.toString();
+    final safeMapUri = SafeExternalUri.https(mapUrl);
+    final safeSourceUri = SafeExternalUri.https(sourceUrl);
 
     await showDialog<void>(
       context: context,
@@ -208,26 +211,26 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
                   label: 'อีเมล',
                   value: parsed['submitted_by_email']?.toString() ?? '-',
                 ),
-                if (mapUrl?.isNotEmpty == true || sourceUrl?.isNotEmpty == true)
+                if (safeMapUri != null || safeSourceUri != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Wrap(
                       spacing: 10,
                       runSpacing: 8,
                       children: [
-                        if (mapUrl?.isNotEmpty == true)
+                        if (safeMapUri != null)
                           OutlinedButton.icon(
                             onPressed: () => launchUrl(
-                              Uri.parse(mapUrl!),
+                              safeMapUri,
                               mode: LaunchMode.externalApplication,
                             ),
                             icon: const Icon(Icons.map_outlined),
                             label: const Text('เปิด Google Maps'),
                           ),
-                        if (sourceUrl?.isNotEmpty == true)
+                        if (safeSourceUri != null)
                           OutlinedButton.icon(
                             onPressed: () => launchUrl(
-                              Uri.parse(sourceUrl!),
+                              safeSourceUri,
                               mode: LaunchMode.externalApplication,
                             ),
                             icon: const Icon(Icons.open_in_new),

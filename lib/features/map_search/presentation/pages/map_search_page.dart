@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/listings/data/repositories/listing_repository.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
 import 'package:room_rental/features/listings/presentation/pages/listing_detail_page.dart';
@@ -198,11 +199,11 @@ class _MapSearchPageState extends State<MapSearchPage> {
                             ),
                             title: Text(room.title),
                             subtitle: Text('${room.location} • $distanceLabel'),
-                            trailing: room.mapUrl?.isNotEmpty == true
+                            trailing: SafeExternalUri.https(room.mapUrl) != null
                                 ? IconButton(
                                     tooltip: 'นำทาง',
                                     onPressed: () => launchUrl(
-                                      Uri.parse(room.mapUrl!),
+                                      SafeExternalUri.https(room.mapUrl)!,
                                       mode: LaunchMode.externalApplication,
                                     ),
                                     icon: const Icon(Icons.directions_outlined),

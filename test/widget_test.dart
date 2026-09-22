@@ -27,5 +27,6 @@ void main() {
 
     expect(find.byType(AppLogo), findsOneWidget);
     expect(find.text('ค้นหา'), findsOneWidget);
+    expect(find.text('ล้างค่า'), findsOneWidget);
   });
 }

@@ -21,14 +21,6 @@ class ThumbnailCompressor {
   static const int targetBytes = 450 * 1024;
 
   static CompressedThumbnail compress(Uint8List source, String fileName) {
-    if (source.lengthInBytes <= maxBytes) {
-      return CompressedThumbnail(
-        bytes: source,
-        fileName: fileName,
-        wasCompressed: false,
-      );
-    }
-
     final decoded = image.decodeImage(source);
     if (decoded == null) {
       throw const FormatException('ไม่สามารถอ่านไฟล์รูปนี้ได้');
@@ -67,7 +59,7 @@ class ThumbnailCompressor {
     return CompressedThumbnail(
       bytes: result,
       fileName: '$baseName.jpg',
-      wasCompressed: true,
+      wasCompressed: source.lengthInBytes != result.lengthInBytes,
     );
   }
 }

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,8 +11,35 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
+    const authorization = request.headers.get("Authorization");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!authorization || !supabaseUrl || !anonKey) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false },
+    });
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) return json({ error: "Unauthorized" }, 401);
+    const { data: allowed, error: rateLimitError } = await supabase.rpc(
+      "consume_api_rate_limit",
+      {
+        requested_action: "search-osm-places",
+        maximum_requests: 30,
+        window_seconds: 3600,
+      },
+    );
+    if (rateLimitError) return json({ error: "Rate limiter unavailable" }, 503);
+    if (!allowed) return json({ error: "Too many requests" }, 429);
+
     const body = await request.json();
-    const parts = [body.village, body.district, body.province]
+    const rawParts = [body.village, body.district, body.province];
+    if (rawParts.some((value) => typeof value === "string" && value.length > 120)) {
+      return json({ error: "Location value is too long" }, 400);
+    }
+    const parts = rawParts
       .filter((value) => typeof value === "string" && value.trim().length > 0)
       .map((value) => value.trim());
     const area = parts.length > 0 ? `${parts.join(" ")} Laos` : "Vientiane Laos";
@@ -21,7 +49,10 @@ Deno.serve(async (request) => {
     geocodeUrl.searchParams.set("format", "jsonv2");
     geocodeUrl.searchParams.set("limit", "1");
     geocodeUrl.searchParams.set("countrycodes", "la");
-    const geocode = await fetch(geocodeUrl, { headers: osmHeaders });
+    const geocode = await fetch(geocodeUrl, {
+      headers: osmHeaders,
+      signal: AbortSignal.timeout(8_000),
+    });
     if (!geocode.ok) return json({ error: "Unable to locate selected area" }, 502);
     const matches = await geocode.json();
     if (!Array.isArray(matches) || matches.length === 0) {
@@ -40,6 +71,7 @@ Deno.serve(async (request) => {
       method: "POST",
       headers: { ...osmHeaders, "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ data: overpassQuery }),
+      signal: AbortSignal.timeout(25_000),
     });
     if (!overpass.ok) return json({ error: "OpenStreetMap search is busy" }, 502);
     const data = await overpass.json();

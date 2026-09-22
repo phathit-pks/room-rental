@@ -1,9 +1,23 @@
 import 'dart:typed_data';
 
 import 'package:room_rental/core/config/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ScrapedListingRepository {
   const ScrapedListingRepository();
+
+  Future<bool> hasClientSubmission() async {
+    final client = SupabaseConfig.client;
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) return false;
+    final rows = await client
+        .from('scraped_listings')
+        .select('id')
+        .eq('created_by', user.id)
+        .filter('parsed_data->>client_submission', 'eq', 'true')
+        .limit(1);
+    return (rows as List).isNotEmpty;
+  }
 
   Future<String> saveDraft({
     required String rawText,
@@ -141,12 +155,26 @@ class ScrapedListingRepository {
     if (client == null || user == null) {
       throw StateError('กรุณาเข้าสู่ระบบ Admin อีกครั้ง');
     }
+    if (bytes.isEmpty || bytes.lengthInBytes > 1024 * 1024) {
+      throw const FormatException('ไฟล์รูปต้องมีขนาดไม่เกิน 1 MB');
+    }
     final extension = fileName.contains('.')
         ? fileName.split('.').last.toLowerCase()
-        : 'jpg';
+        : '';
+    if (extension != 'jpg' && extension != 'jpeg') {
+      throw const FormatException(
+        'ระบบรองรับไฟล์รูป JPEG ที่ตรวจสอบแล้วเท่านั้น',
+      );
+    }
     final path =
-        '$folder/${user.id}/${DateTime.now().microsecondsSinceEpoch}.$extension';
-    await client.storage.from('property-images').uploadBinary(path, bytes);
+        '$folder/${user.id}/${DateTime.now().microsecondsSinceEpoch}.jpg';
+    await client.storage
+        .from('property-images')
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(contentType: 'image/jpeg'),
+        );
     return client.storage.from('property-images').getPublicUrl(path);
   }
 }
