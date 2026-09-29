@@ -73,16 +73,58 @@ class _HomePageState extends State<HomePage> {
   void _search(String? province, String? district, String? village) {
     setState(() {
       _isSearchMode = true;
+      _usingCurrentLocation = false;
       _province = province;
       _district = district;
       _village = village;
-      _listings = _repository.searchPage(
+      _listings = _loadNearestSearch(
         province: province,
         district: district,
         village: village,
-        page: 1,
       );
     });
+  }
+
+  Future<ListingPage> _loadNearestSearch({
+    String? province,
+    String? district,
+    String? village,
+  }) async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission != LocationPermission.denied &&
+          permission != LocationPermission.deniedForever) {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+        final nearest = await _repository.searchNearest(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          province: province,
+          district: district,
+          village: village,
+        );
+        if (nearest.items.isNotEmpty) {
+          if (mounted) setState(() => _usingCurrentLocation = true);
+          return nearest;
+        }
+      }
+    } catch (_) {
+      // A denied location permission falls back to the latest local listings.
+    }
+    return _repository.searchPage(
+      province: province,
+      district: district,
+      village: village,
+      page: 1,
+      pageSize: 9,
+    );
   }
 
   void _clearSearch() {
@@ -1069,7 +1111,9 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                       const SizedBox(height: 6),
                       Text(
                         widget.isSearchMode
-                            ? 'แสดงหน้าละ 9 รายการ'
+                            ? widget.usingCurrentLocation
+                                  ? 'แสดง 9 รายการที่อยู่ใกล้คุณที่สุด'
+                                  : 'แสดงสูงสุด 9 รายการ'
                             : widget.usingCurrentLocation
                             ? 'ที่พักใกล้ตำแหน่งปัจจุบันของคุณ • สูงสุด 9 รายการ'
                             : 'ประกาศล่าสุด • สูงสุด 9 รายการ',

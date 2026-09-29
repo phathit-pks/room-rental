@@ -184,6 +184,38 @@ class SupabaseListingRepository implements ListingRepository {
     );
   }
 
+  Future<ListingPage> searchNearest({
+    required double latitude,
+    required double longitude,
+    String? province,
+    String? district,
+    String? village,
+  }) async {
+    final client = SupabaseConfig.client;
+    if (client == null) {
+      return const ListingPage(items: [], page: 1, pageSize: 9, totalItems: 0);
+    }
+    final response = await client.rpc(
+      'search_nearest_listings',
+      params: {
+        'center_lat': latitude,
+        'center_lng': longitude,
+        'filter_province': province,
+        'filter_district': district,
+        'filter_village': village,
+      },
+    );
+    final items = List<Map<String, dynamic>>.from(
+      response,
+    ).map(_fromRow).toList();
+    return ListingPage(
+      items: items,
+      page: 1,
+      pageSize: 9,
+      totalItems: items.length,
+    );
+  }
+
   @override
   Future<List<RentalListing>> search({
     String? province,
