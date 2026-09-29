@@ -209,41 +209,6 @@ class ListingDetailPage extends StatelessWidget {
         Icons.location_on_outlined,
         room.address?.trim().isNotEmpty == true ? room.address! : room.location,
       ),
-      const SizedBox(height: 12),
-      Text(
-        _priceLabel(),
-        style: const TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFF2563EB),
-        ),
-      ),
-      const SizedBox(height: 8),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF7ED),
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: const Color(0xFFFED7AA)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.info_outline, size: 16, color: Color(0xFF9A3412)),
-            SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'ราคาโดยประมาณ ไม่ใช่ราคายืนยัน กรุณาตรวจสอบกับผู้ให้เช่า',
-                style: TextStyle(
-                  color: Color(0xFF9A3412),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
       if (room.description?.trim().isNotEmpty == true) ...[
         const SizedBox(height: 24),
         Text('รายละเอียด', style: Theme.of(context).textTheme.titleLarge),
@@ -453,23 +418,4 @@ class ListingDetailPage extends StatelessWidget {
     'condo' => 'คอนโด',
     _ => 'อพาร์ตเมนต์',
   };
-
-  String _priceLabel() {
-    final symbol = switch (room.currency) {
-      'THB' => '฿',
-      'USD' => r'$',
-      _ => '₭',
-    };
-    String format(int value) => value.toString().replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'),
-      (_) => ',',
-    );
-    if (room.monthlyPriceMin <= 0 && room.monthlyPriceMax <= 0) {
-      return 'สอบถามราคา';
-    }
-    if (room.monthlyPriceMin != room.monthlyPriceMax) {
-      return '$symbol${format(room.monthlyPriceMin)} – ${format(room.monthlyPriceMax)} / เดือน';
-    }
-    return '$symbol${format(room.monthlyPriceMin)} / เดือน';
-  }
 }

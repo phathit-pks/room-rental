@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as image;
 
 class CompressedThumbnail {
@@ -20,7 +21,10 @@ class ThumbnailCompressor {
   // hard upload limit remains 1 MB.
   static const int targetBytes = 450 * 1024;
 
-  static CompressedThumbnail compress(Uint8List source, String fileName) {
+  static Future<CompressedThumbnail> compress(
+    Uint8List source,
+    String fileName,
+  ) async {
     final decoded = image.decodeImage(source);
     if (decoded == null) {
       throw const FormatException('ไม่สามารถอ่านไฟล์รูปนี้ได้');
@@ -34,20 +38,36 @@ class ThumbnailCompressor {
           : image.copyResize(working, height: maxDimension);
     }
 
+    final normalizedJpeg = Uint8List.fromList(
+      image.encodeJpg(working, quality: 90),
+    );
     Uint8List? result;
     for (var quality = 85; quality >= 35; quality -= 10) {
-      result = Uint8List.fromList(image.encodeJpg(working, quality: quality));
+      result = await FlutterImageCompress.compressWithList(
+        normalizedJpeg,
+        minWidth: 1600,
+        minHeight: 1600,
+        quality: quality,
+        format: CompressFormat.webp,
+      );
       if (result.lengthInBytes <= targetBytes) break;
     }
 
-    while (result!.lengthInBytes > targetBytes &&
-        (working.width > 480 || working.height > 480)) {
+    var reducedMaxDimension = 1280;
+    while (result!.lengthInBytes > targetBytes && reducedMaxDimension >= 480) {
       working = image.copyResize(
         working,
-        width: (working.width * .8).round(),
-        height: (working.height * .8).round(),
+        width: working.width > working.height ? reducedMaxDimension : null,
+        height: working.height >= working.width ? reducedMaxDimension : null,
       );
-      result = Uint8List.fromList(image.encodeJpg(working, quality: 65));
+      result = await FlutterImageCompress.compressWithList(
+        Uint8List.fromList(image.encodeJpg(working, quality: 85)),
+        minWidth: reducedMaxDimension,
+        minHeight: reducedMaxDimension,
+        quality: 65,
+        format: CompressFormat.webp,
+      );
+      reducedMaxDimension = (reducedMaxDimension * .75).round();
     }
 
     if (result.lengthInBytes > maxBytes) {
@@ -58,7 +78,7 @@ class ThumbnailCompressor {
         : fileName;
     return CompressedThumbnail(
       bytes: result,
-      fileName: '$baseName.jpg',
+      fileName: '$baseName.webp',
       wasCompressed: source.lengthInBytes != result.lengthInBytes,
     );
   }

@@ -161,19 +161,19 @@ class ScrapedListingRepository {
     final extension = fileName.contains('.')
         ? fileName.split('.').last.toLowerCase()
         : '';
-    if (extension != 'jpg' && extension != 'jpeg') {
+    if (extension != 'webp') {
       throw const FormatException(
-        'ระบบรองรับไฟล์รูป JPEG ที่ตรวจสอบแล้วเท่านั้น',
+        'ระบบรองรับไฟล์รูป WebP ที่ตรวจสอบแล้วเท่านั้น',
       );
     }
     final path =
-        '$folder/${user.id}/${DateTime.now().microsecondsSinceEpoch}.jpg';
+        '$folder/${user.id}/${DateTime.now().microsecondsSinceEpoch}.webp';
     await client.storage
         .from('property-images')
         .uploadBinary(
           path,
           bytes,
-          fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          fileOptions: const FileOptions(contentType: 'image/webp'),
         );
     return client.storage.from('property-images').getPublicUrl(path);
   }

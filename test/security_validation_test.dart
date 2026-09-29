@@ -28,9 +28,9 @@ void main() {
     });
   });
 
-  test('rejects non-image upload bytes even when the file is small', () {
-    expect(
-      () => ThumbnailCompressor.compress(
+  test('rejects non-image upload bytes even when the file is small', () async {
+    await expectLater(
+      ThumbnailCompressor.compress(
         Uint8List.fromList('<script>alert(1)</script>'.codeUnits),
         'photo.jpg',
       ),

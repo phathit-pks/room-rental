@@ -69,9 +69,8 @@ class _ContactPageState extends State<ContactPage> {
     if (file == null) return;
     try {
       final bytes = await file.readAsBytes();
-      setState(
-        () => _thumbnail = ThumbnailCompressor.compress(bytes, file.name),
-      );
+      final compressed = await ThumbnailCompressor.compress(bytes, file.name);
+      if (mounted) setState(() => _thumbnail = compressed);
     } catch (error) {
       setState(() => _error = error.toString());
     }
@@ -99,7 +98,10 @@ class _ContactPageState extends State<ContactPage> {
       final compressed = <CompressedThumbnail>[];
       for (final file in files) {
         compressed.add(
-          ThumbnailCompressor.compress(await file.readAsBytes(), file.name),
+          await ThumbnailCompressor.compress(
+            await file.readAsBytes(),
+            file.name,
+          ),
         );
       }
       if (mounted) setState(() => _galleryImages.addAll(compressed));
@@ -139,8 +141,14 @@ class _ContactPageState extends State<ContactPage> {
             .map((image) => (bytes: image.bytes, fileName: image.fileName))
             .toList(),
       );
-      final minimum = int.parse(_priceMin.text.replaceAll(',', '').trim());
-      final maximum = int.parse(_priceMax.text.replaceAll(',', '').trim());
+      final minimumInput = int.tryParse(
+        _priceMin.text.replaceAll(',', '').trim(),
+      );
+      final maximumInput = int.tryParse(
+        _priceMax.text.replaceAll(',', '').trim(),
+      );
+      final minimum = minimumInput ?? maximumInput;
+      final maximum = maximumInput ?? minimumInput;
       final metadata = user.userMetadata ?? const <String, dynamic>{};
       final submittedByName = (metadata['full_name'] ?? metadata['name'] ?? '')
           .toString()
@@ -176,7 +184,7 @@ class _ContactPageState extends State<ContactPage> {
           'posted_at': DateTime.now().toUtc().toIso8601String(),
           'title': _title.text.trim(),
           'property_type': _type,
-          'monthly_price': minimum,
+          'monthly_price': minimum ?? 0,
           'monthly_price_min': minimum,
           'monthly_price_max': maximum,
           'currency': _currency,
@@ -449,7 +457,7 @@ class _ContactPageState extends State<ContactPage> {
                   controller: _priceMin,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'ราคาต่ำสุด/เดือน *',
+                    labelText: 'ราคาต่ำสุด/เดือน (ไม่บังคับ)',
                   ),
                   validator: _number,
                 ),
@@ -460,7 +468,7 @@ class _ContactPageState extends State<ContactPage> {
                   controller: _priceMax,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'ราคาสูงสุด/เดือน *',
+                    labelText: 'ราคาสูงสุด/เดือน (ไม่บังคับ)',
                   ),
                   validator: _maxPrice,
                 ),
@@ -603,10 +611,12 @@ class _ContactPageState extends State<ContactPage> {
   String? _required(String? value) =>
       (value?.trim().isEmpty ?? true) ? 'กรุณากรอกข้อมูล' : null;
   String? _number(String? value) =>
-      int.tryParse((value ?? '').replaceAll(',', '')) == null
+      value?.trim().isNotEmpty == true &&
+          int.tryParse(value!.replaceAll(',', '')) == null
       ? 'กรุณากรอกตัวเลข'
       : null;
   String? _maxPrice(String? value) {
+    if (value?.trim().isEmpty ?? true) return null;
     final error = _number(value);
     if (error != null) return error;
     final min = int.tryParse(_priceMin.text.replaceAll(',', '')) ?? 0;

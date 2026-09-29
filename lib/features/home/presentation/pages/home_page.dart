@@ -615,16 +615,7 @@ class _SponsoredListingState extends State<_SponsoredListing> {
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        _price(room),
-                        style: const TextStyle(
-                          color: Color(0xFF2563EB),
-                          fontSize: 21,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
+                    const Spacer(),
                     FilledButton(
                       onPressed: () => Navigator.push(
                         context,
@@ -636,8 +627,6 @@ class _SponsoredListingState extends State<_SponsoredListing> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                const _EstimatedPriceNotice(),
               ],
             ),
           );
@@ -657,22 +646,6 @@ class _SponsoredListingState extends State<_SponsoredListing> {
         },
       ),
     );
-  }
-
-  String _price(RentalListing room) {
-    String format(int value) => value.toString().replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'),
-      (_) => ',',
-    );
-    final symbol = room.currency == 'LAK'
-        ? '₭'
-        : room.currency == 'THB'
-        ? '฿'
-        : r'$';
-    if (room.monthlyPriceMin != room.monthlyPriceMax) {
-      return '$symbol${format(room.monthlyPriceMin)} – ${format(room.monthlyPriceMax)} / เดือน';
-    }
-    return '$symbol${format(room.monthlyPrice)} / เดือน';
   }
 }
 
@@ -1164,6 +1137,11 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                             : width >= 560
                             ? 2
                             : 1;
+                        final cardWidth =
+                            (width - ((columns - 1) * 20)) / columns;
+                        final cardHeight = math
+                            .max(520.0, cardWidth / .78)
+                            .toDouble();
                         return GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -1173,7 +1151,7 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                                 crossAxisCount: columns,
                                 crossAxisSpacing: 20,
                                 mainAxisSpacing: 20,
-                                childAspectRatio: columns == 1 ? 1.35 : .92,
+                                mainAxisExtent: cardHeight,
                               ),
                           itemBuilder: (context, index) =>
                               _RoomCard(room: rooms[index]),
@@ -1240,6 +1218,9 @@ class _ListingsSkeletonState extends State<_ListingsSkeleton>
                 : constraints.maxWidth >= 560
                 ? 2
                 : 1;
+            final cardWidth =
+                (constraints.maxWidth - ((columns - 1) * 20)) / columns;
+            final cardHeight = math.max(520.0, cardWidth / .78).toDouble();
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1248,7 +1229,7 @@ class _ListingsSkeletonState extends State<_ListingsSkeleton>
                 crossAxisCount: columns,
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
-                childAspectRatio: columns == 1 ? 1.35 : .92,
+                mainAxisExtent: cardHeight,
               ),
               itemBuilder: (_, _) => const _ListingSkeletonCard(),
             );
@@ -1414,6 +1395,7 @@ class _RoomCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
+              flex: 11,
               child: Container(
                 color: const Color(0xFFDCEAFE),
                 child: Stack(
@@ -1490,31 +1472,40 @@ class _RoomCard extends StatelessWidget {
                           final liked = FavoriteStore.instance.contains(
                             room.id,
                           );
-                          return IconButton.filledTonal(
-                            tooltip: liked
-                                ? 'นำออกจากรายการโปรด'
-                                : 'บันทึกเป็นรายการโปรด',
-                            onPressed: () async {
-                              final next = await FavoriteStore.instance.toggle(
-                                room.id,
-                              );
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  duration: const Duration(milliseconds: 1200),
-                                  content: Text(
-                                    next
-                                        ? 'บันทึก “${room.title}” เป็นรายการโปรดแล้ว'
-                                        : 'นำ “${room.title}” ออกจากรายการโปรดแล้ว',
+                          return Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF8FAFC),
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              tooltip: liked
+                                  ? 'นำออกจากรายการโปรด'
+                                  : 'บันทึกเป็นรายการโปรด',
+                              onPressed: () async {
+                                final next = await FavoriteStore.instance
+                                    .toggle(room.id);
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    duration: const Duration(
+                                      milliseconds: 1200,
+                                    ),
+                                    content: Text(
+                                      next
+                                          ? 'บันทึก “${room.title}” เป็นรายการโปรดแล้ว'
+                                          : 'นำ “${room.title}” ออกจากรายการโปรดแล้ว',
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
-                            icon: Icon(
-                              liked ? Icons.favorite : Icons.favorite_border,
-                              color: liked
-                                  ? const Color(0xFFDC2626)
-                                  : const Color(0xFF475569),
+                                );
+                              },
+                              icon: Icon(
+                                liked
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: liked
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF475569),
+                              ),
                             ),
                           );
                         },
@@ -1524,72 +1515,114 @@ class _RoomCard extends StatelessWidget {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    room.title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
+            Expanded(
+              flex: 9,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      room.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _propertyTypeLabel(room.propertyType),
-                    style: const TextStyle(
-                      color: Color(0xFF2563EB),
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        _propertyTypeLabel(room.propertyType),
+                        style: const TextStyle(
+                          color: Color(0xFF2563EB),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 7),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 17,
-                        color: Color(0xFF64748B),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          room.location,
-                          style: const TextStyle(color: Color(0xFF64748B)),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 17,
+                          color: Color(0xFF64748B),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _priceLabel(room),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF2563EB),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            room.location,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              height: 1.35,
+                            ),
                           ),
                         ),
-                      ),
-                      if (SafeExternalUri.https(room.mapUrl) != null)
-                        TextButton.icon(
-                          onPressed: () => launchUrl(
-                            SafeExternalUri.https(room.mapUrl)!,
-                            mode: LaunchMode.externalApplication,
+                      ],
+                    ),
+                    const Spacer(),
+                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        if (SafeExternalUri.https(room.mapUrl) != null)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => launchUrl(
+                                SafeExternalUri.https(room.mapUrl)!,
+                                mode: LaunchMode.externalApplication,
+                              ),
+                              icon: const Icon(Icons.directions_outlined),
+                              label: Text(
+                                room.distanceMeters == null
+                                    ? 'นำทาง'
+                                    : _distanceLabel(room.distanceMeters!),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(40),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                              ),
+                            ),
                           ),
-                          icon: const Icon(Icons.directions_outlined),
-                          label: Text(
-                            room.distanceMeters == null
-                                ? 'นำทาง'
-                                : 'นำทาง · ${_distanceLabel(room.distanceMeters!)}',
+                        if (SafeExternalUri.https(room.mapUrl) != null)
+                          const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ListingDetailPage(room: room),
+                              ),
+                            ),
+                            icon: const Icon(Icons.arrow_forward_rounded),
+                            label: const Text('รายละเอียด'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(40),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                            ),
                           ),
                         ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1598,23 +1631,12 @@ class _RoomCard extends StatelessWidget {
     );
   }
 
-  String _currencySymbol(String currency) => switch (currency) {
-    'THB' => '฿',
-    'USD' => r'$',
-    _ => '₭',
-  };
-
   String _propertyTypeLabel(String value) => switch (value) {
     'room' => 'ห้องแถว',
     'house' => 'บ้านเช่า',
     'condo' => 'คอนโด',
     _ => 'อพาร์ตเมนต์',
   };
-
-  String _formatPrice(int value) {
-    final digits = value.toString();
-    return digits.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
-  }
 
   String _distanceLabel(double meters) {
     if (meters < 1000) return '${meters.round()} ม.';
@@ -1623,53 +1645,6 @@ class _RoomCard extends StatelessWidget {
         ? '${kilometers.toStringAsFixed(1)} กม.'
         : '${kilometers.round()} กม.';
   }
-
-  String _priceLabel(RentalListing room) {
-    final minimum = room.monthlyPriceMin;
-    final maximum = room.monthlyPriceMax;
-    final symbol = _currencySymbol(room.currency);
-    if (minimum <= 0 && maximum <= 0) return 'สอบถามราคา';
-    if (minimum > 0 && maximum > 0 && minimum != maximum) {
-      return '$symbol${_formatPrice(minimum)} – ${_formatPrice(maximum)} / เดือน';
-    }
-    final price = minimum > 0 ? minimum : maximum;
-    return '$symbol${_formatPrice(price)} / เดือน';
-  }
-}
-
-class _EstimatedPriceNotice extends StatelessWidget {
-  const _EstimatedPriceNotice();
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: 'ราคาอาจมีการเปลี่ยนแปลง กรุณาตรวจสอบกับผู้ให้เช่าอีกครั้ง',
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: const Color(0xFFFED7AA)),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.info_outline, size: 14, color: Color(0xFF9A3412)),
-          SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              'ราคาโดยประมาณ • โปรดตรวจสอบอีกครั้ง',
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Color(0xFF9A3412),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _HowItWorksSection extends StatelessWidget {

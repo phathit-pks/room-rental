@@ -1137,7 +1137,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       error = null;
     });
     try {
-      final compressed = ThumbnailCompressor.compress(
+      final compressed = await ThumbnailCompressor.compress(
         await selected.readAsBytes(),
         selected.name,
       );
@@ -1175,7 +1175,10 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       final compressedFiles = <CompressedThumbnail>[];
       for (final file in selected) {
         compressedFiles.add(
-          ThumbnailCompressor.compress(await file.readAsBytes(), file.name),
+          await ThumbnailCompressor.compress(
+            await file.readAsBytes(),
+            file.name,
+          ),
         );
       }
       if (mounted) setState(() => galleryImages.addAll(compressedFiles));
@@ -1205,12 +1208,14 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       error = null;
     });
     try {
-      final priceMin = num.parse(
+      final priceMinInput = num.tryParse(
         priceMinController.text.replaceAll(',', '').trim(),
       );
-      final priceMax = num.parse(
+      final priceMaxInput = num.tryParse(
         priceMaxController.text.replaceAll(',', '').trim(),
       );
+      final priceMin = priceMinInput ?? priceMaxInput;
+      final priceMax = priceMaxInput ?? priceMinInput;
       final mapLocation = GoogleMapsLocation.tryParse(mapController.text);
       String? thumbnailUrl;
       if (thumbnail != null) {
@@ -1230,7 +1235,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
             ? null
             : addressController.text.trim(),
         'property_type': propertyType,
-        'monthly_price': priceMin,
+        'monthly_price': priceMin ?? 0,
         'monthly_price_min': priceMin,
         'monthly_price_max': priceMax,
         'currency': currency,
@@ -1467,13 +1472,14 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                         controller: priceMinController,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'ราคาต่ำสุด/เดือน *',
+                          labelText: 'ราคาต่ำสุด/เดือน (ไม่บังคับ)',
                         ),
                         validator: (value) =>
-                            num.tryParse(
-                                  value?.replaceAll(',', '').trim() ?? '',
-                                ) ==
-                                null
+                            value?.trim().isNotEmpty == true &&
+                                num.tryParse(
+                                      value?.replaceAll(',', '').trim() ?? '',
+                                    ) ==
+                                    null
                             ? 'กรุณากรอกราคาเป็นตัวเลข'
                             : null,
                       ),
@@ -1484,7 +1490,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                         controller: priceMaxController,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'ราคาสูงสุด/เดือน *',
+                          labelText: 'ราคาสูงสุด/เดือน (ไม่บังคับ)',
                         ),
                         validator: (value) {
                           final maximum = num.tryParse(
@@ -1493,6 +1499,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                           final minimum = num.tryParse(
                             priceMinController.text.replaceAll(',', '').trim(),
                           );
+                          if (value?.trim().isEmpty ?? true) return null;
                           if (maximum == null) {
                             return 'กรุณากรอกราคาเป็นตัวเลข';
                           }
