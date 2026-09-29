@@ -190,6 +190,7 @@ class SupabaseListingRepository implements ListingRepository {
     String? province,
     String? district,
     String? village,
+    DateTime? updatedAfter,
   }) async {
     final client = SupabaseConfig.client;
     if (client == null) {
@@ -203,6 +204,7 @@ class SupabaseListingRepository implements ListingRepository {
         'filter_province': province,
         'filter_district': district,
         'filter_village': village,
+        'updated_after': updatedAfter?.toUtc().toIso8601String(),
       },
     );
     final items = List<Map<String, dynamic>>.from(
@@ -211,7 +213,7 @@ class SupabaseListingRepository implements ListingRepository {
     return ListingPage(
       items: items,
       page: 1,
-      pageSize: 9,
+      pageSize: 30,
       totalItems: items.length,
     );
   }

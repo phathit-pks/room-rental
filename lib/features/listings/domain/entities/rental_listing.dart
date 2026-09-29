@@ -46,4 +46,29 @@ class RentalListing {
   final String? submittedByName;
   final String? submittedByEmail;
   final DateTime? advertisementEndsAt;
+
+  RentalListing withDistanceMeters(double distanceMeters) => RentalListing(
+    id: id,
+    title: title,
+    location: location,
+    monthlyPrice: monthlyPrice,
+    monthlyPriceMin: monthlyPriceMin,
+    monthlyPriceMax: monthlyPriceMax,
+    imageUrl: imageUrl,
+    currency: currency,
+    propertyType: propertyType,
+    mapUrl: mapUrl,
+    latitude: latitude,
+    longitude: longitude,
+    distanceMeters: distanceMeters,
+    description: description,
+    address: address,
+    amenities: amenities,
+    galleryUrls: galleryUrls,
+    sourceUrl: sourceUrl,
+    contactPhone: contactPhone,
+    submittedByName: submittedByName,
+    submittedByEmail: submittedByEmail,
+    advertisementEndsAt: advertisementEndsAt,
+  );
 }

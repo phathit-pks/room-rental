@@ -1,11 +1,12 @@
--- Return no more than nine approved listings in the selected area, ordered by
--- their distance from the searching user's current location.
+-- Return up to 30 approved listings in the selected area, ordered by their
+-- distance from the searching user's current location. The app displays nine.
 create or replace function public.search_nearest_listings(
   center_lat double precision,
   center_lng double precision,
   filter_province text default null,
   filter_district text default null,
-  filter_village text default null
+  filter_village text default null,
+  updated_after timestamptz default null
 )
 returns table (
   id uuid,
@@ -51,6 +52,7 @@ as $$
       and (filter_province is null or sl.province = filter_province)
       and (filter_district is null or sl.district = filter_district)
       and (filter_village is null or sl.village = filter_village)
+      and (updated_after is null or sl.updated_at > updated_after)
   )
   select
     id, title, monthly_price, monthly_price_min, monthly_price_max, currency,
@@ -59,11 +61,11 @@ as $$
     calculated_distance
   from distances
   order by calculated_distance
-  limit 9;
+  limit 30;
 $$;
 
 grant execute on function public.search_nearest_listings(
-  double precision, double precision, text, text, text
+  double precision, double precision, text, text, text, timestamptz
 ) to anon, authenticated;
 
 notify pgrst, 'reload schema';

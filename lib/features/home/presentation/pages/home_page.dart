@@ -12,6 +12,7 @@ import 'package:room_rental/features/listings/domain/entities/rental_listing.dar
 import 'package:room_rental/features/listings/presentation/pages/listing_detail_page.dart';
 import 'package:room_rental/features/locations/data/location_store.dart';
 import 'package:room_rental/features/map_search/presentation/pages/map_search_page.dart';
+import 'package:room_rental/features/home/presentation/pages/nearby_search_cache.dart';
 import 'package:room_rental/shared/widgets/app_logo.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -30,6 +31,7 @@ class _HomePageState extends State<HomePage> {
   bool _isSearchMode = false;
   bool _usingCurrentLocation = false;
   bool _searchInProgress = false;
+  NearbySearchCache? _nearbySearchCache;
   String? _province;
   String? _district;
   String? _village;
@@ -117,6 +119,48 @@ class _HomePageState extends State<HomePage> {
             timeLimit: Duration(seconds: 8),
           ),
         );
+        final cache = _nearbySearchCache;
+        final canUseCache =
+            cache != null &&
+            DateTime.now().difference(cache.lastSynced) <
+                const Duration(minutes: 5) &&
+            cache.matches(
+              province: province,
+              district: district,
+              village: village,
+            ) &&
+            _distanceBetweenMeters(
+                  position.latitude,
+                  position.longitude,
+                  cache.latitude,
+                  cache.longitude,
+                ) <
+                750;
+        if (canUseCache) {
+          try {
+            final updates = await _repository.searchNearest(
+              latitude: position.latitude,
+              longitude: position.longitude,
+              province: province,
+              district: district,
+              village: village,
+              updatedAfter: cache.lastSynced,
+            );
+            cache.merge(updates.items);
+            cache.lastSynced = DateTime.now();
+          } catch (_) {
+            // Keep using the local cache if an incremental refresh fails.
+          }
+          final page = _pageFromCache(
+            cache,
+            latitude: position.latitude,
+            longitude: position.longitude,
+          );
+          if (page.items.isNotEmpty) {
+            if (mounted) setState(() => _usingCurrentLocation = true);
+            return page;
+          }
+        }
         final nearest = await _repository.searchNearest(
           latitude: position.latitude,
           longitude: position.longitude,
@@ -125,8 +169,20 @@ class _HomePageState extends State<HomePage> {
           village: village,
         );
         if (nearest.items.isNotEmpty) {
+          _nearbySearchCache = NearbySearchCache(
+            province: province,
+            district: district,
+            village: village,
+            latitude: position.latitude,
+            longitude: position.longitude,
+            items: nearest.items,
+          );
           if (mounted) setState(() => _usingCurrentLocation = true);
-          return nearest;
+          return _pageFromCache(
+            _nearbySearchCache!,
+            latitude: position.latitude,
+            longitude: position.longitude,
+          );
         }
       }
     } catch (_) {
@@ -140,6 +196,56 @@ class _HomePageState extends State<HomePage> {
       pageSize: 9,
     );
   }
+
+  ListingPage _pageFromCache(
+    NearbySearchCache cache, {
+    required double latitude,
+    required double longitude,
+  }) {
+    final items =
+        cache.items
+            .where((item) => item.latitude != null && item.longitude != null)
+            .map(
+              (item) => item.withDistanceMeters(
+                _distanceBetweenMeters(
+                  latitude,
+                  longitude,
+                  item.latitude!,
+                  item.longitude!,
+                ),
+              ),
+            )
+            .toList()
+          ..sort(
+            (first, second) =>
+                first.distanceMeters!.compareTo(second.distanceMeters!),
+          );
+    return ListingPage(
+      items: items.take(9).toList(),
+      page: 1,
+      pageSize: 9,
+      totalItems: items.length > 9 ? 9 : items.length,
+    );
+  }
+
+  double _distanceBetweenMeters(
+    double firstLatitude,
+    double firstLongitude,
+    double secondLatitude,
+    double secondLongitude,
+  ) {
+    final latitudeDelta = _toRadians(secondLatitude - firstLatitude);
+    final longitudeDelta = _toRadians(secondLongitude - firstLongitude);
+    final a =
+        math.sin(latitudeDelta / 2) * math.sin(latitudeDelta / 2) +
+        math.cos(_toRadians(firstLatitude)) *
+            math.cos(_toRadians(secondLatitude)) *
+            math.sin(longitudeDelta / 2) *
+            math.sin(longitudeDelta / 2);
+    return 12742000 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  double _toRadians(double degrees) => degrees * math.pi / 180;
 
   void _clearSearch() {
     setState(() {
