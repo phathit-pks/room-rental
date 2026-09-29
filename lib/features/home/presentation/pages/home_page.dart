@@ -70,19 +70,26 @@ class _HomePageState extends State<HomePage> {
     return _repository.searchPage(pageSize: 9);
   }
 
-  void _search(String? province, String? district, String? village) {
+  Future<void> _search(
+    String? province,
+    String? district,
+    String? village,
+  ) async {
+    late final Future<ListingPage> search;
     setState(() {
       _isSearchMode = true;
       _usingCurrentLocation = false;
       _province = province;
       _district = district;
       _village = village;
-      _listings = _loadNearestSearch(
+      search = _loadNearestSearch(
         province: province,
         district: district,
         village: village,
       );
+      _listings = search;
     });
+    await search;
   }
 
   Future<ListingPage> _loadNearestSearch({
@@ -392,7 +399,7 @@ class _HeroSection extends StatelessWidget {
     required this.advertisements,
   });
 
-  final void Function(String?, String?, String?) onSearch;
+  final Future<void> Function(String?, String?, String?) onSearch;
   final VoidCallback onClear;
   final Future<List<RentalListing>> advertisements;
 
@@ -817,7 +824,7 @@ class _PromotionBanner extends StatelessWidget {
 class _SearchBox extends StatefulWidget {
   const _SearchBox({required this.onSearch, required this.onClear});
 
-  final void Function(String?, String?, String?) onSearch;
+  final Future<void> Function(String?, String?, String?) onSearch;
   final VoidCallback onClear;
 
   @override
@@ -832,6 +839,7 @@ class _SearchBoxState extends State<_SearchBox> {
   String? _province;
   String? _district;
   String? _village;
+  bool _searching = false;
 
   @override
   void initState() {
@@ -867,7 +875,8 @@ class _SearchBoxState extends State<_SearchBox> {
       ? const []
       : _locations[_province]![_district]!;
 
-  void _search() {
+  Future<void> _search() async {
+    if (_searching) return;
     final selections = [
       _province,
       _district,
@@ -881,10 +890,15 @@ class _SearchBoxState extends State<_SearchBox> {
       );
       return;
     }
+    setState(() => _searching = true);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('กำลังค้นหาห้องใน $selections')));
-    widget.onSearch(_province, _district, _village);
+    try {
+      await widget.onSearch(_province, _district, _village);
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
   }
 
   void _clear() {
@@ -956,9 +970,17 @@ class _SearchBoxState extends State<_SearchBox> {
                 ),
               ];
               final searchButton = FilledButton.icon(
-                onPressed: _search,
-                icon: const Icon(Icons.search),
-                label: const Text('ค้นหา'),
+                onPressed: _searching ? null : _search,
+                icon: _searching
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.search),
+                label: Text(_searching ? 'กำลังค้นหา...' : 'ค้นหา'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
