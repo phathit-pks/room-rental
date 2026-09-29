@@ -831,15 +831,17 @@ class _SearchBoxState extends State<_SearchBox> {
       _district,
       _village,
     ].whereType<String>().join(' • ');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          selections.isEmpty
-              ? 'กรุณาเลือกแขวง เมือง หรือบ้านที่ต้องการค้นหา'
-              : 'กำลังค้นหาห้องใน $selections',
+    if (selections.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('กรุณาเลือกแขวง เมือง หรือบ้านที่ต้องการค้นหา'),
         ),
-      ),
-    );
+      );
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('กำลังค้นหาห้องใน $selections')));
     widget.onSearch(_province, _district, _village);
   }
 
