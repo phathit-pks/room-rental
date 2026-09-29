@@ -29,6 +29,7 @@ class _HomePageState extends State<HomePage> {
   late Future<List<RentalListing>> _advertisements;
   bool _isSearchMode = false;
   bool _usingCurrentLocation = false;
+  bool _searchInProgress = false;
   String? _province;
   String? _district;
   String? _village;
@@ -75,21 +76,27 @@ class _HomePageState extends State<HomePage> {
     String? district,
     String? village,
   ) async {
+    if (_searchInProgress) return;
+    _searchInProgress = true;
     late final Future<ListingPage> search;
-    setState(() {
-      _isSearchMode = true;
-      _usingCurrentLocation = false;
-      _province = province;
-      _district = district;
-      _village = village;
-      search = _loadNearestSearch(
-        province: province,
-        district: district,
-        village: village,
-      );
-      _listings = search;
-    });
-    await search;
+    try {
+      setState(() {
+        _isSearchMode = true;
+        _usingCurrentLocation = false;
+        _province = province;
+        _district = district;
+        _village = village;
+        search = _loadNearestSearch(
+          province: province,
+          district: district,
+          village: village,
+        );
+        _listings = search;
+      });
+      await search;
+    } finally {
+      _searchInProgress = false;
+    }
   }
 
   Future<ListingPage> _loadNearestSearch({
@@ -891,6 +898,7 @@ class _SearchBoxState extends State<_SearchBox> {
       return;
     }
     setState(() => _searching = true);
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('กำลังค้นหาห้องใน $selections')));
