@@ -1642,6 +1642,27 @@ class _RoomCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (room.distanceMeters != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.near_me_outlined,
+                            size: 16,
+                            color: Color(0xFF2563EB),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'ห่างจากคุณ ${_distanceLabel(room.distanceMeters!)}',
+                            style: const TextStyle(
+                              color: Color(0xFF2563EB),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const Spacer(),
                     const Divider(height: 1, color: Color(0xFFE2E8F0)),
                     const SizedBox(height: 8),
@@ -1655,11 +1676,7 @@ class _RoomCard extends StatelessWidget {
                                 mode: LaunchMode.externalApplication,
                               ),
                               icon: const Icon(Icons.directions_outlined),
-                              label: Text(
-                                room.distanceMeters == null
-                                    ? 'นำทาง'
-                                    : _distanceLabel(room.distanceMeters!),
-                              ),
+                              label: const Text('นำทาง'),
                               style: OutlinedButton.styleFrom(
                                 minimumSize: const Size.fromHeight(40),
                                 padding: const EdgeInsets.symmetric(
