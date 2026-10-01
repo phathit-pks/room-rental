@@ -1252,6 +1252,7 @@ class _SearchBoxState extends State<_SearchBox> {
                 );
               }
               return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   for (final filter in filters) ...[
                     Expanded(child: filter),
@@ -1305,24 +1306,42 @@ class _LocationDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      key: ValueKey('$label:$value'),
-      initialValue: value,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: const Color(0xFF2563EB)),
-        fillColor: const Color(0xFFF8FAFC),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
+    // The label sits above the field: the theme's borderless outline would
+    // otherwise float it across the field's top edge.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF475569),
+            ),
+          ),
         ),
-      ),
-      hint: Text('เลือก$label'),
-      items: items
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-          .toList(),
-      onChanged: onChanged,
+        DropdownButtonFormField<String>(
+          key: ValueKey('$label:$value'),
+          initialValue: value,
+          isExpanded: true,
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: const Color(0xFF2563EB)),
+            fillColor: const Color(0xFFF8FAFC),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+          hint: Text('เลือก$label'),
+          items: items
+              .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 }
