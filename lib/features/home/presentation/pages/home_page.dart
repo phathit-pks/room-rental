@@ -1509,8 +1509,8 @@ class _ListingsSkeletonState extends State<_ListingsSkeleton>
     super.initState();
     _animation = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
   }
 
   @override
@@ -1521,78 +1521,153 @@ class _ListingsSkeletonState extends State<_ListingsSkeleton>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) => Opacity(
-        opacity: 0.58 + (_animation.value * 0.34),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 900
-                ? 3
-                : constraints.maxWidth >= 560
-                ? 2
-                : 1;
-            final cardWidth =
-                (constraints.maxWidth - ((columns - 1) * 20)) / columns;
-            final cardHeight = math.max(520.0, cardWidth / .78).toDouble();
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 9,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                crossAxisSpacing: 20,
-                mainAxisSpacing: 20,
-                mainAxisExtent: cardHeight,
+    final animate = !MediaQuery.disableAnimationsOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 900
+            ? 3
+            : constraints.maxWidth >= 560
+            ? 2
+            : 1;
+        final cardWidth =
+            (constraints.maxWidth - ((columns - 1) * 20)) / columns;
+        final cardHeight = math.max(520.0, cardWidth / .78).toDouble();
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 9,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 20,
+            mainAxisSpacing: 20,
+            mainAxisExtent: cardHeight,
+          ),
+          itemBuilder: (_, _) =>
+              _ListingSkeletonCard(shimmer: animate ? _animation : null),
+        );
+      },
+    );
+  }
+}
+
+/// Mirrors the layout of [_RoomCard] so the page doesn't jump when the
+/// real listings arrive.
+class _ListingSkeletonCard extends StatelessWidget {
+  const _ListingSkeletonCard({required this.shimmer});
+
+  final Animation<double>? shimmer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                flex: 11,
+                child: ColoredBox(
+                  color: Color(0xFFE2E8F0),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: _SkeletonBlock(width: 40, height: 40),
+                    ),
+                  ),
+                ),
               ),
-              itemBuilder: (_, _) => const _ListingSkeletonCard(),
-            );
-          },
-        ),
+              Expanded(
+                flex: 9,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      _SkeletonLine(widthFactor: .72, height: 20),
+                      SizedBox(height: 12),
+                      _SkeletonBlock(width: 84, height: 28),
+                      SizedBox(height: 14),
+                      _SkeletonLine(widthFactor: .9, height: 12),
+                      SizedBox(height: 10),
+                      _SkeletonLine(widthFactor: .45, height: 12),
+                      Spacer(),
+                      Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: _SkeletonBlock(height: 40)),
+                          SizedBox(width: 10),
+                          Expanded(child: _SkeletonBlock(height: 40)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (shimmer != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: shimmer!,
+                  builder: (context, _) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: const Alignment(-1, -0.4),
+                        end: const Alignment(1, 0.4),
+                        colors: const [
+                          Color(0x00FFFFFF),
+                          Color(0x99FFFFFF),
+                          Color(0x00FFFFFF),
+                        ],
+                        stops: const [0.35, 0.5, 0.65],
+                        transform: _SlidingGradientTransform(
+                          shimmer!.value * 2 - 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _ListingSkeletonCard extends StatelessWidget {
-  const _ListingSkeletonCard();
+class _SlidingGradientTransform extends GradientTransform {
+  const _SlidingGradientTransform(this.percent);
+
+  final double percent;
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) =>
+      Matrix4.translationValues(bounds.width * percent, 0, 0);
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  const _SkeletonBlock({this.width, required this.height});
+
+  final double? width;
+  final double height;
 
   @override
   Widget build(BuildContext context) => Container(
-    clipBehavior: Clip.antiAlias,
+    width: width,
+    height: height,
     decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Expanded(
-          flex: 6,
-          child: ColoredBox(color: Color(0xFFDCE8FA), child: SizedBox.expand()),
-        ),
-        Expanded(
-          flex: 5,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SkeletonLine(widthFactor: .68, height: 15),
-                const SizedBox(height: 12),
-                const _SkeletonLine(widthFactor: .32, height: 10),
-                const SizedBox(height: 12),
-                const _SkeletonLine(widthFactor: .92, height: 10),
-                const SizedBox(height: 7),
-                const _SkeletonLine(widthFactor: .74, height: 10),
-                const Spacer(),
-                const _SkeletonLine(widthFactor: .58, height: 17),
-              ],
-            ),
-          ),
-        ),
-      ],
+      color: const Color(0xFFEDF1F7),
+      borderRadius: BorderRadius.circular(99),
     ),
   );
 }
@@ -1609,7 +1684,7 @@ class _SkeletonLine extends StatelessWidget {
     child: Container(
       height: height,
       decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
+        color: const Color(0xFFEDF1F7),
         borderRadius: BorderRadius.circular(99),
       ),
     ),
@@ -1780,50 +1855,7 @@ class _RoomCard extends StatelessWidget {
                     Positioned(
                       top: 12,
                       right: 12,
-                      child: ListenableBuilder(
-                        listenable: FavoriteStore.instance,
-                        builder: (context, _) {
-                          final liked = FavoriteStore.instance.contains(
-                            room.id,
-                          );
-                          return Container(
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF8FAFC),
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              tooltip: liked
-                                  ? 'นำออกจากรายการโปรด'
-                                  : 'บันทึกเป็นรายการโปรด',
-                              onPressed: () async {
-                                final next = await FavoriteStore.instance
-                                    .toggle(room.id);
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    duration: const Duration(
-                                      milliseconds: 1200,
-                                    ),
-                                    content: Text(
-                                      next
-                                          ? 'บันทึก “${room.title}” เป็นรายการโปรดแล้ว'
-                                          : 'นำ “${room.title}” ออกจากรายการโปรดแล้ว',
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: Icon(
-                                liked
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                color: liked
-                                    ? const Color(0xFFDC2626)
-                                    : const Color(0xFF475569),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                      child: _FavoriteButton(room: room),
                     ),
                   ],
                 ),
@@ -2249,4 +2281,183 @@ class _ShootingArrow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _FavoriteButton extends StatefulWidget {
+  const _FavoriteButton({required this.room});
+
+  final RentalListing room;
+
+  @override
+  State<_FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends State<_FavoriteButton>
+    with SingleTickerProviderStateMixin {
+  static final _likeScale = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: 1.35,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 30,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.35,
+        end: 0.9,
+      ).chain(CurveTween(curve: Curves.easeInOut)),
+      weight: 25,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 0.9,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 45,
+    ),
+  ]);
+  static final _unlikeScale = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: 0.75,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 40,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 0.75,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeOutBack)),
+      weight: 60,
+    ),
+  ]);
+
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 650),
+  );
+  bool _liking = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggle(bool liked) async {
+    _liking = !liked;
+    if (!MediaQuery.disableAnimationsOf(context)) _controller.forward(from: 0);
+    final next = await FavoriteStore.instance.toggle(widget.room.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(milliseconds: 1200),
+          content: Text(
+            next
+                ? 'บันทึก “${widget.room.title}” เป็นรายการโปรดแล้ว'
+                : 'นำ “${widget.room.title}” ออกจากรายการโปรดแล้ว',
+          ),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: FavoriteStore.instance,
+      builder: (context, _) {
+        final liked = FavoriteStore.instance.contains(widget.room.id);
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final scale = (_liking ? _likeScale : _unlikeScale).transform(
+              _controller.value,
+            );
+            return Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                if (_liking && _controller.isAnimating)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _HeartBurstPainter(_controller.value),
+                    ),
+                  ),
+                Transform.scale(scale: scale, child: child),
+              ],
+            );
+          },
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              tooltip: liked ? 'นำออกจากรายการโปรด' : 'บันทึกเป็นรายการโปรด',
+              onPressed: () => _toggle(liked),
+              icon: Icon(
+                liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: liked
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFF475569),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// An expanding ring followed by a burst of dots around the heart.
+class _HeartBurstPainter extends CustomPainter {
+  _HeartBurstPainter(this.progress);
+
+  final double progress;
+
+  static const _colors = [
+    Color(0xFFDC2626),
+    Color(0xFFF472B6),
+    Color(0xFFF59E0B),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+
+    final ring = (progress / 0.45).clamp(0.0, 1.0);
+    if (ring < 1) {
+      final eased = Curves.easeOut.transform(ring);
+      canvas.drawCircle(
+        center,
+        16 + 16 * eased,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5 * (1 - eased)
+          ..color = const Color(0xFFDC2626).withValues(alpha: 0.5 * (1 - ring)),
+      );
+    }
+
+    final dots = ((progress - 0.15) / 0.85).clamp(0.0, 1.0);
+    if (dots > 0 && dots < 1) {
+      final distance = 18 + 14 * Curves.easeOutCubic.transform(dots);
+      final radius = 3.5 * (1 - dots);
+      for (var i = 0; i < 8; i++) {
+        final angle = i * math.pi / 4 - math.pi / 2;
+        canvas.drawCircle(
+          center + Offset(math.cos(angle), math.sin(angle)) * distance,
+          radius,
+          Paint()..color = _colors[i % _colors.length],
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HeartBurstPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
