@@ -1767,6 +1767,14 @@ class _RoomCard extends StatelessWidget {
   const _RoomCard({required this.room});
   final RentalListing room;
 
+  Object get _heroTag => 'listing-cover-${room.id}';
+
+  void _openDetail(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ListingDetailPage(room: room, heroTag: _heroTag),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -1777,9 +1785,7 @@ class _RoomCard extends StatelessWidget {
         side: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
       child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ListingDetailPage(room: room)),
-        ),
+        onTap: () => _openDetail(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1790,22 +1796,27 @@ class _RoomCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (room.imageUrl.isNotEmpty)
-                      Image.network(
-                        room.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(
-                          Icons.broken_image_outlined,
-                          size: 64,
-                          color: Color(0x552563EB),
-                        ),
-                      )
-                    else
-                      const Icon(
-                        Icons.apartment_outlined,
-                        size: 82,
-                        color: Color(0x552563EB),
+                    Hero(
+                      tag: _heroTag,
+                      child: ColoredBox(
+                        color: const Color(0xFFDCEAFE),
+                        child: room.imageUrl.isNotEmpty
+                            ? Image.network(
+                                room.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const Icon(
+                                  Icons.broken_image_outlined,
+                                  size: 64,
+                                  color: Color(0x552563EB),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.apartment_outlined,
+                                size: 82,
+                                color: Color(0x552563EB),
+                              ),
                       ),
+                    ),
                     if (room.submittedByName?.trim().isNotEmpty == true)
                       Positioned(
                         top: 12,
@@ -1959,11 +1970,7 @@ class _RoomCard extends StatelessWidget {
                           const SizedBox(width: 10),
                         Expanded(
                           child: FilledButton.icon(
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => ListingDetailPage(room: room),
-                              ),
-                            ),
+                            onPressed: () => _openDetail(context),
                             icon: const Icon(Icons.arrow_forward_rounded),
                             label: const Text('รายละเอียด'),
                             style: FilledButton.styleFrom(
@@ -2339,6 +2346,7 @@ class _FavoriteButtonState extends State<_FavoriteButton>
     duration: const Duration(milliseconds: 650),
   );
   bool _liking = false;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -2346,18 +2354,32 @@ class _FavoriteButtonState extends State<_FavoriteButton>
     super.dispose();
   }
 
-  Future<void> _toggle(bool liked) async {
-    _liking = !liked;
-    if (!MediaQuery.disableAnimationsOf(context)) _controller.forward(from: 0);
-    final next = await FavoriteStore.instance.toggle(widget.room.id);
-    if (!mounted) return;
+  /// Ignores taps until the current toggle has been saved and its animation
+  /// has finished, so rapid tapping can't flicker the heart or the snackbar.
+  Future<void> _toggle() async {
+    if (_busy) return;
+    _busy = true;
+    try {
+      _liking = !FavoriteStore.instance.contains(widget.room.id);
+      final animation = MediaQuery.disableAnimationsOf(context)
+          ? Future<void>.value()
+          : _controller.forward(from: 0).orCancel.catchError((_) {});
+      final next = await FavoriteStore.instance.toggle(widget.room.id);
+      if (mounted) _showSnackBar(next);
+      await animation;
+    } finally {
+      _busy = false;
+    }
+  }
+
+  void _showSnackBar(bool liked) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           duration: const Duration(milliseconds: 1200),
           content: Text(
-            next
+            liked
                 ? 'บันทึก “${widget.room.title}” เป็นรายการโปรดแล้ว'
                 : 'นำ “${widget.room.title}” ออกจากรายการโปรดแล้ว',
           ),
@@ -2398,7 +2420,7 @@ class _FavoriteButtonState extends State<_FavoriteButton>
             ),
             child: IconButton(
               tooltip: liked ? 'นำออกจากรายการโปรด' : 'บันทึกเป็นรายการโปรด',
-              onPressed: () => _toggle(liked),
+              onPressed: _toggle,
               icon: Icon(
                 liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                 color: liked

@@ -6,9 +6,13 @@ import 'package:room_rental/features/listings/domain/entities/rental_listing.dar
 import 'package:url_launcher/url_launcher.dart';
 
 class ListingDetailPage extends StatelessWidget {
-  const ListingDetailPage({required this.room, super.key});
+  const ListingDetailPage({required this.room, this.heroTag, super.key});
 
   final RentalListing room;
+
+  /// When set, the cover image flies in from the [Hero] with the same tag on
+  /// the previous page.
+  final Object? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -77,10 +81,9 @@ class ListingDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _heroImage() => ClipRRect(
-    borderRadius: BorderRadius.circular(24),
-    child: AspectRatio(
-      aspectRatio: 16 / 7,
+  Widget _heroImage() {
+    final image = ClipRRect(
+      borderRadius: BorderRadius.circular(24),
       child: ColoredBox(
         color: const Color(0xFFDCEAFE),
         child: room.imageUrl.isEmpty
@@ -96,8 +99,12 @@ class ListingDetailPage extends StatelessWidget {
                     const Icon(Icons.broken_image_outlined, size: 90),
               ),
       ),
-    ),
-  );
+    );
+    return AspectRatio(
+      aspectRatio: 16 / 7,
+      child: heroTag == null ? image : Hero(tag: heroTag!, child: image),
+    );
+  }
 
   Widget _gallerySection(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
