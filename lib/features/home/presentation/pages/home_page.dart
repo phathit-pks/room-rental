@@ -934,6 +934,126 @@ class _PromotionBanner extends StatelessWidget {
   }
 }
 
+Future<void> _showSelectLocationDialog(BuildContext context) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: const Color(0x660F172A),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (context, _, _) => const _SelectLocationDialog(),
+    transitionBuilder: (context, animation, _, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeIn,
+      );
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+class _SelectLocationDialog extends StatelessWidget {
+  const _SelectLocationDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            elevation: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x290F172A),
+                    blurRadius: 40,
+                    offset: Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.location_on_rounded,
+                      size: 36,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'เลือกพื้นที่ก่อนค้นหา',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'กรุณาเลือกแขวง เมือง หรือบ้านที่ต้องการค้นหาอย่างน้อย 1 รายการ',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.5,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: const Text('ตกลง'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SearchBox extends StatefulWidget {
   const _SearchBox({required this.onSearch, required this.onClear});
 
@@ -996,11 +1116,8 @@ class _SearchBoxState extends State<_SearchBox> {
       _village,
     ].whereType<String>().join(' • ');
     if (selections.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('กรุณาเลือกแขวง เมือง หรือบ้านที่ต้องการค้นหา'),
-        ),
-      );
+      ScaffoldMessenger.of(context).clearSnackBars();
+      await _showSelectLocationDialog(context);
       return;
     }
     setState(() => _searching = true);
