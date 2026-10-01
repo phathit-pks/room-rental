@@ -1395,11 +1395,6 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                     ],
                   ),
                 ),
-                if (!widget.isSearchMode)
-                  const Text(
-                    'ต้องการดูเพิ่มเติม กรุณาใช้ช่องค้นหา',
-                    style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                  ),
               ],
             ),
             const SizedBox(height: 22),
