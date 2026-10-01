@@ -934,14 +934,20 @@ class _PromotionBanner extends StatelessWidget {
   }
 }
 
-Future<void> _showSelectLocationDialog(BuildContext context) {
+Future<void> _showNoticeDialog(
+  BuildContext context, {
+  required IconData icon,
+  required String title,
+  required String message,
+}) {
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: const Color(0x660F172A),
     transitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (context, _, _) => const _SelectLocationDialog(),
+    pageBuilder: (context, _, _) =>
+        _NoticeDialog(icon: icon, title: title, message: message),
     transitionBuilder: (context, animation, _, child) {
       final curved = CurvedAnimation(
         parent: animation,
@@ -959,8 +965,16 @@ Future<void> _showSelectLocationDialog(BuildContext context) {
   );
 }
 
-class _SelectLocationDialog extends StatelessWidget {
-  const _SelectLocationDialog();
+class _NoticeDialog extends StatelessWidget {
+  const _NoticeDialog({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -999,27 +1013,23 @@ class _SelectLocationDialog extends StatelessWidget {
                         colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
                       ),
                     ),
-                    child: const Icon(
-                      Icons.location_on_rounded,
-                      size: 36,
-                      color: Color(0xFF2563EB),
-                    ),
+                    child: Icon(icon, size: 36, color: Color(0xFF2563EB)),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'เลือกพื้นที่ก่อนค้นหา',
+                  Text(
+                    title,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF0F172A),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'กรุณาเลือกแขวง เมือง หรือบ้านที่ต้องการค้นหาอย่างน้อย 1 รายการ',
+                  Text(
+                    message,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       height: 1.5,
                       color: Color(0xFF64748B),
@@ -1117,7 +1127,13 @@ class _SearchBoxState extends State<_SearchBox> {
     ].whereType<String>().join(' • ');
     if (selections.isEmpty) {
       ScaffoldMessenger.of(context).clearSnackBars();
-      await _showSelectLocationDialog(context);
+      await _showNoticeDialog(
+        context,
+        icon: Icons.location_on_rounded,
+        title: 'เลือกพื้นที่ก่อนค้นหา',
+        message:
+            'กรุณาเลือกแขวง เมือง หรือบ้านที่ต้องการค้นหาอย่างน้อย 1 รายการ',
+      );
       return;
     }
     setState(() => _searching = true);
@@ -1139,9 +1155,13 @@ class _SearchBoxState extends State<_SearchBox> {
       _village = null;
     });
     widget.onClear();
-    ScaffoldMessenger.of(
+    ScaffoldMessenger.of(context).clearSnackBars();
+    _showNoticeDialog(
       context,
-    ).showSnackBar(const SnackBar(content: Text('ล้างตัวกรองแล้ว')));
+      icon: Icons.filter_alt_off_rounded,
+      title: 'ล้างตัวกรองแล้ว',
+      message: 'แสดงห้องแนะนำทั้งหมดอีกครั้ง',
+    );
   }
 
   @override
