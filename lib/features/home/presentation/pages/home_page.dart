@@ -1901,18 +1901,10 @@ class _RoomCard extends StatelessWidget {
                       children: [
                         if (SafeExternalUri.https(room.mapUrl) != null)
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => launchUrl(
+                            child: _NavigateButton(
+                              onLaunch: () => launchUrl(
                                 SafeExternalUri.https(room.mapUrl)!,
                                 mode: LaunchMode.externalApplication,
-                              ),
-                              icon: const Icon(Icons.directions_outlined),
-                              label: const Text('นำทาง'),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(40),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
                               ),
                             ),
                           ),
@@ -2094,4 +2086,167 @@ class _Footer extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _NavigateButton extends StatefulWidget {
+  const _NavigateButton({required this.onLaunch});
+
+  final Future<void> Function() onLaunch;
+
+  @override
+  State<_NavigateButton> createState() => _NavigateButtonState();
+}
+
+class _NavigateButtonState extends State<_NavigateButton>
+    with TickerProviderStateMixin {
+  static const _accent = Color(0xFF2563EB);
+
+  late final _fill = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  );
+  late final _shoot = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+  bool _hovering = false;
+  bool _launching = false;
+
+  @override
+  void dispose() {
+    _fill.dispose();
+    _shoot.dispose();
+    super.dispose();
+  }
+
+  Future<void> _play() async {
+    await _fill.forward().orCancel.catchError((_) {});
+    if (!mounted || _fill.value < 1) return;
+    await _shoot.forward(from: 0).orCancel.catchError((_) {});
+  }
+
+  void _onHover(bool hovering) {
+    _hovering = hovering;
+    if (_launching) return;
+    if (hovering) {
+      _play();
+    } else {
+      _shoot.reset();
+      _fill.reverse();
+    }
+  }
+
+  Future<void> _onTap() async {
+    if (_launching) return;
+    _launching = true;
+    try {
+      if (!MediaQuery.disableAnimationsOf(context)) await _play();
+      if (mounted) await widget.onLaunch();
+    } finally {
+      _launching = false;
+      if (mounted && !_hovering) {
+        _shoot.reset();
+        _fill.reverse();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final outline = Theme.of(context).colorScheme.outline;
+    return AnimatedBuilder(
+      animation: Listenable.merge([_fill, _shoot]),
+      builder: (context, _) {
+        final fill = Curves.easeOutCubic.transform(_fill.value);
+        final shape = StadiumBorder(
+          side: BorderSide(color: Color.lerp(outline, _accent, fill)!),
+        );
+        return Material(
+          shape: shape,
+          clipBehavior: Clip.antiAlias,
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _onTap,
+            onHover: _onHover,
+            onTapDown: (_) {
+              if (!_hovering) _fill.forward();
+            },
+            onTapCancel: () {
+              if (!_hovering && !_launching) _fill.reverse();
+            },
+            child: SizedBox(
+              height: 40,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: fill,
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ShootingArrow(progress: _shoot.value),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'นำทาง',
+                          style: TextStyle(
+                            color: _accent,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The arrow flies off to the top-right, then glides back into place.
+class _ShootingArrow extends StatelessWidget {
+  const _ShootingArrow({required this.progress});
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final Offset offset;
+    final double opacity;
+    if (progress < 0.5) {
+      final t = Curves.easeInCubic.transform(progress / 0.5);
+      offset = Offset(22 * t, -22 * t);
+      opacity = 1 - t;
+    } else {
+      final t = Curves.easeOutCubic.transform((progress - 0.5) / 0.5);
+      offset = Offset(-14 * (1 - t), 14 * (1 - t));
+      opacity = t;
+    }
+    return Transform.translate(
+      offset: offset,
+      child: Opacity(
+        opacity: opacity,
+        child: const Icon(
+          Icons.near_me_rounded,
+          size: 20,
+          color: Color(0xFF2563EB),
+        ),
+      ),
+    );
+  }
 }
