@@ -2109,7 +2109,6 @@ class _NavigateButtonState extends State<_NavigateButton>
     vsync: this,
     duration: const Duration(milliseconds: 420),
   );
-  bool _hovering = false;
   bool _launching = false;
 
   @override
@@ -2125,17 +2124,6 @@ class _NavigateButtonState extends State<_NavigateButton>
     await _shoot.forward(from: 0).orCancel.catchError((_) {});
   }
 
-  void _onHover(bool hovering) {
-    _hovering = hovering;
-    if (_launching) return;
-    if (hovering) {
-      _play();
-    } else {
-      _shoot.reset();
-      _fill.reverse();
-    }
-  }
-
   Future<void> _onTap() async {
     if (_launching) return;
     _launching = true;
@@ -2144,7 +2132,7 @@ class _NavigateButtonState extends State<_NavigateButton>
       if (mounted) await widget.onLaunch();
     } finally {
       _launching = false;
-      if (mounted && !_hovering) {
+      if (mounted) {
         _shoot.reset();
         _fill.reverse();
       }
@@ -2167,12 +2155,9 @@ class _NavigateButtonState extends State<_NavigateButton>
           color: Colors.transparent,
           child: InkWell(
             onTap: _onTap,
-            onHover: _onHover,
-            onTapDown: (_) {
-              if (!_hovering) _fill.forward();
-            },
+            onTapDown: (_) => _fill.forward(),
             onTapCancel: () {
-              if (!_hovering && !_launching) _fill.reverse();
+              if (!_launching) _fill.reverse();
             },
             child: SizedBox(
               height: 40,
