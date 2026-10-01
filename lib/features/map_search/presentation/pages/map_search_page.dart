@@ -17,6 +17,11 @@ class MapSearchPage extends StatefulWidget {
 class _MapSearchPageState extends State<MapSearchPage> {
   static const _vientiane = LatLng(17.9757, 102.6331);
   static const _distance = Distance();
+
+  // Keep in sync with search_listings_in_radius in
+  // supabase/add_radius_listing_search.sql, which enforces the same caps.
+  static const _maxRadiusMeters = 5000.0;
+  static const _maxResults = 20;
   final MapController _mapController = MapController();
   final _repository = const SupabaseListingRepository();
 
@@ -65,14 +70,17 @@ class _MapSearchPageState extends State<MapSearchPage> {
       () => _radiusMeters = _distance(
         _center!,
         point,
-      ).clamp(100, 20000).toDouble(),
+      ).clamp(100, _maxRadiusMeters).toDouble(),
     );
   }
 
   void _onPointerUp(LatLng point) {
     if (!_drawing || !_pointerDown || _center == null) return;
     setState(() {
-      _radiusMeters = _distance(_center!, point).clamp(100, 20000).toDouble();
+      _radiusMeters = _distance(
+        _center!,
+        point,
+      ).clamp(100, _maxRadiusMeters).toDouble();
       _pointerDown = false;
       _drawing = false;
     });
@@ -103,16 +111,19 @@ class _MapSearchPageState extends State<MapSearchPage> {
     final edgeOffset = camera.latLngToScreenOffset(edge) + details.delta;
     final newEdge = camera.screenOffsetToLatLng(edgeOffset);
     setState(() {
-      _radiusMeters = _distance(_center!, newEdge).clamp(100, 20000).toDouble();
+      _radiusMeters = _distance(
+        _center!,
+        newEdge,
+      ).clamp(100, _maxRadiusMeters).toDouble();
       _results = const [];
     });
   }
 
   String get _radiusLabel {
-    if (_radiusMeters >= 1000) {
-      return '${(_radiusMeters / 1000).toStringAsFixed(1)} กม.';
-    }
-    return '${_radiusMeters.round()} ม.';
+    final label = _radiusMeters >= 1000
+        ? '${(_radiusMeters / 1000).toStringAsFixed(1)} กม.'
+        : '${_radiusMeters.round()} ม.';
+    return _radiusMeters >= _maxRadiusMeters ? '$label (สูงสุด)' : label;
   }
 
   Future<void> _searchWithinArea() async {
@@ -251,8 +262,8 @@ class _MapSearchPageState extends State<MapSearchPage> {
                       ),
                     ),
                     Text(
-                      _results.length == 30
-                          ? '30 ห้องที่ใกล้ศูนย์กลางที่สุด • $_radiusLabel'
+                      _results.length == _maxResults
+                          ? '$_maxResults ห้องที่ใกล้ศูนย์กลางที่สุด • $_radiusLabel'
                           : 'ภายในรัศมี $_radiusLabel • กดเพื่อดูรายละเอียด',
                       style: const TextStyle(
                         color: Color(0xFF64748B),

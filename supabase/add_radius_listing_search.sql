@@ -38,7 +38,11 @@ language sql
 stable
 set search_path = public
 as $$
-  with distances as (
+  -- Cap the area server-side so callers can't bypass the app's 5 km limit.
+  with bounds as (
+    select least(greatest(radius_meters, 0), 5000.0) as radius_meters
+  ),
+  distances as (
     select
       sl.*,
       6371000.0 * acos(
@@ -49,15 +53,16 @@ as $$
         ))
       ) as calculated_distance
     from public.scraped_listings sl
+    cross join bounds b
     where sl.status = 'approved'
       and sl.latitude is not null
       and sl.longitude is not null
       and sl.parsed_data @> '{"manual_entry": true}'::jsonb
       and (sl.source_posted_at is null or sl.source_posted_at >= now() - interval '1 year')
-      and sl.latitude between center_lat - (radius_meters / 111320.0)
-                          and center_lat + (radius_meters / 111320.0)
-      and sl.longitude between center_lng - (radius_meters / (111320.0 * greatest(0.1, cos(radians(center_lat)))))
-                           and center_lng + (radius_meters / (111320.0 * greatest(0.1, cos(radians(center_lat)))))
+      and sl.latitude between center_lat - (b.radius_meters / 111320.0)
+                          and center_lat + (b.radius_meters / 111320.0)
+      and sl.longitude between center_lng - (b.radius_meters / (111320.0 * greatest(0.1, cos(radians(center_lat)))))
+                           and center_lng + (b.radius_meters / (111320.0 * greatest(0.1, cos(radians(center_lat)))))
   )
   select
     distances.id,
@@ -80,9 +85,10 @@ as $$
     distances.parsed_data,
     distances.calculated_distance
   from distances
-  where distances.calculated_distance <= radius_meters
+  cross join bounds
+  where distances.calculated_distance <= bounds.radius_meters
   order by distances.calculated_distance
-  limit 30;
+  limit 20;
 $$;
 
 grant execute on function public.search_listings_in_radius(
