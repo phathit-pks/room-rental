@@ -502,8 +502,8 @@ class _NavigationBar extends StatelessWidget {
                 animation: ThemeStore.instance,
                 builder: (context, _) {
                   return DayNightToggle(
-                    width: 72,
-                    height: 36,
+                    width: 52,
+                    height: 26,
                     isDark: ThemeStore.instance.isDark,
                     onChanged: (value) => ThemeStore.instance.setDark(value),
                   );
