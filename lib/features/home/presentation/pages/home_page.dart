@@ -369,7 +369,11 @@ class _InteractivePageBackgroundState extends State<_InteractivePageBackground>
           children: [
             RepaintBoundary(
               child: CustomPaint(
-                painter: _ParticleBackgroundPainter(_animation, _pointer),
+                painter: _ParticleBackgroundPainter(
+                  _animation,
+                  _pointer,
+                  isDark: Theme.of(context).brightness == Brightness.dark,
+                ),
               ),
             ),
             widget.child,
@@ -381,11 +385,12 @@ class _InteractivePageBackgroundState extends State<_InteractivePageBackground>
 }
 
 class _ParticleBackgroundPainter extends CustomPainter {
-  _ParticleBackgroundPainter(this.animation, this.pointer)
+  _ParticleBackgroundPainter(this.animation, this.pointer, {required this.isDark})
     : super(repaint: Listenable.merge([animation, pointer]));
 
   final Animation<double> animation;
   final ValueNotifier<Offset> pointer;
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -393,10 +398,12 @@ class _ParticleBackgroundPainter extends CustomPainter {
     canvas.drawRect(
       bounds,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFF2F7FF), Color(0xFFFAFCFF), Color(0xFFF0FFF9)],
+          colors: isDark
+              ? const [Color(0xFF0B1220), Color(0xFF0F172A), Color(0xFF0B1220)]
+              : const [Color(0xFFF2F7FF), Color(0xFFFAFCFF), Color(0xFFF0FFF9)],
         ).createShader(bounds),
     );
 
@@ -426,14 +433,15 @@ class _ParticleBackgroundPainter extends CustomPainter {
       points.add(point);
     }
 
+    final lineColor = isDark ? const Color(0xFF64748B) : const Color(0xFF4F6FAF);
     final linePaint = Paint()..strokeWidth = 0.8;
     for (var i = 0; i < points.length; i++) {
       for (var j = i + 1; j < points.length; j++) {
         final distance = (points[i] - points[j]).distance;
         if (distance < 115) {
-          linePaint.color = const Color(
-            0xFF4F6FAF,
-          ).withValues(alpha: (1 - distance / 115) * 0.15);
+          linePaint.color = lineColor.withValues(
+            alpha: (1 - distance / 115) * (isDark ? 0.1 : 0.15),
+          );
           canvas.drawLine(points[i], points[j], linePaint);
         }
       }
@@ -448,13 +456,14 @@ class _ParticleBackgroundPainter extends CustomPainter {
       canvas.drawCircle(
         points[i],
         i % 5 == 0 ? 3.2 : 2.1,
-        Paint()..color = color.withValues(alpha: 0.38),
+        Paint()..color = color.withValues(alpha: isDark ? 0.22 : 0.38),
       );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _ParticleBackgroundPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ParticleBackgroundPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }
 
 class _PageWidth extends StatelessWidget {
