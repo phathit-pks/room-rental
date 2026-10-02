@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
+import 'package:room_rental/core/theme/theme_store.dart';
 import 'package:room_rental/core/utils/relative_date_formatter.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/auth/presentation/widgets/client_auth_button.dart';
@@ -15,6 +16,7 @@ import 'package:room_rental/features/locations/data/location_store.dart';
 import 'package:room_rental/features/map_search/presentation/pages/map_search_page.dart';
 import 'package:room_rental/features/home/presentation/pages/nearby_search_cache.dart';
 import 'package:room_rental/shared/widgets/app_logo.dart';
+import 'package:room_rental/shared/widgets/day_night_toggle.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomePage extends StatefulWidget {
@@ -496,11 +498,18 @@ class _NavigationBar extends StatelessWidget {
                 TextButton(onPressed: () {}, child: const Text('เกี่ยวกับเรา')),
                 const SizedBox(width: 12),
               ],
-              IconButton(
-                tooltip: 'ตั้งค่า',
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () => Navigator.pushNamed(context, '/settings'),
+              AnimatedBuilder(
+                animation: ThemeStore.instance,
+                builder: (context, _) {
+                  return DayNightToggle(
+                    width: 72,
+                    height: 36,
+                    isDark: ThemeStore.instance.isDark,
+                    onChanged: (value) => ThemeStore.instance.setDark(value),
+                  );
+                },
               ),
+              const SizedBox(width: 12),
               const ClientAuthButton(),
             ],
           ),
