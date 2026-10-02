@@ -908,8 +908,9 @@ class _PromotionBanner extends StatelessWidget {
               Text(
                 'โปรโมตประกาศของคุณให้ผู้เช่าเห็นก่อนใคร',
                 textAlign: compact ? TextAlign.center : TextAlign.left,
-                style: TextStyle(
-                  color: context.colors.primaryContainer,
+                style: const TextStyle(
+                  // Fixed light tint: this banner stays dark in both themes.
+                  color: Color(0xFFDBEAFE),
                   fontSize: 16,
                 ),
               ),

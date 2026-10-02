@@ -83,8 +83,9 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
+                          // Always a dark-to-primary accent gradient, in both light and dark mode.
                           colors: [
-                            context.colors.textPrimary,
+                            const Color(0xFF172554),
                             context.colors.primary,
                           ],
                         ),
@@ -117,8 +118,9 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'โปรดอ่านและยอมรับก่อนเข้าใช้งานเว็บไซต์',
-                                  style: TextStyle(
-                                    color: context.colors.primaryContainer,
+                                  style: const TextStyle(
+                                    // Fixed light tint: this banner stays dark in both themes.
+                                    color: Color(0xFFDBEAFE),
                                   ),
                                 ),
                               ],
