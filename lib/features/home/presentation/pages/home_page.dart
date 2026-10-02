@@ -385,8 +385,11 @@ class _InteractivePageBackgroundState extends State<_InteractivePageBackground>
 }
 
 class _ParticleBackgroundPainter extends CustomPainter {
-  _ParticleBackgroundPainter(this.animation, this.pointer, {required this.isDark})
-    : super(repaint: Listenable.merge([animation, pointer]));
+  _ParticleBackgroundPainter(
+    this.animation,
+    this.pointer, {
+    required this.isDark,
+  }) : super(repaint: Listenable.merge([animation, pointer]));
 
   final Animation<double> animation;
   final ValueNotifier<Offset> pointer;
@@ -433,7 +436,9 @@ class _ParticleBackgroundPainter extends CustomPainter {
       points.add(point);
     }
 
-    final lineColor = isDark ? const Color(0xFF64748B) : const Color(0xFF4F6FAF);
+    final lineColor = isDark
+        ? const Color(0xFF64748B)
+        : const Color(0xFF4F6FAF);
     final linePaint = Paint()..strokeWidth = 0.8;
     for (var i = 0; i < points.length; i++) {
       for (var j = i + 1; j < points.length; j++) {
@@ -542,52 +547,36 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            context.colors.primaryContainer,
-            context.colors.background,
-            context.colors.successContainer,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: _PageWidth(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 64),
-          child: Column(
-            children: [
-              const _PromotionBanner(),
-              const SizedBox(height: 28),
-              _SponsoredListing(advertisements: advertisements),
-              const SizedBox(height: 30),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _SearchBox(onSearch: onSearch, onClear: onClear),
-                    const SizedBox(height: 22),
-                    const Wrap(
-                      spacing: 22,
-                      runSpacing: 10,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        _TrustItem(
-                          Icons.verified_outlined,
-                          'ประกาศตรวจสอบแล้ว',
-                        ),
-                        _TrustItem(Icons.chat_bubble_outline, 'ติดต่อได้ทันที'),
-                        _TrustItem(Icons.favorite_border, 'บันทึกห้องที่ชอบ'),
-                      ],
-                    ),
-                  ],
-                ),
+    return _PageWidth(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 64),
+        child: Column(
+          children: [
+            const _PromotionBanner(),
+            const SizedBox(height: 28),
+            _SponsoredListing(advertisements: advertisements),
+            const SizedBox(height: 30),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _SearchBox(onSearch: onSearch, onClear: onClear),
+                  const SizedBox(height: 22),
+                  const Wrap(
+                    spacing: 22,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _TrustItem(Icons.verified_outlined, 'ประกาศตรวจสอบแล้ว'),
+                      _TrustItem(Icons.chat_bubble_outline, 'ติดต่อได้ทันที'),
+                      _TrustItem(Icons.favorite_border, 'บันทึกห้องที่ชอบ'),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -2168,7 +2157,10 @@ class _CallToAction extends StatelessWidget {
             Text(
               'ลงทะเบียนเพื่ออัปโหลดห้องแถวของคุณฟรี',
               textAlign: TextAlign.center,
-              style: TextStyle(color: context.colors.borderStrong, fontSize: 16),
+              style: TextStyle(
+                color: context.colors.borderStrong,
+                fontSize: 16,
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton(
