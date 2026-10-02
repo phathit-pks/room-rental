@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:room_rental/core/theme/app_colors.dart';
+
 class AdminAdvertisementsPanel extends StatefulWidget {
   const AdminAdvertisementsPanel({super.key});
 
@@ -154,7 +156,7 @@ class _AdminAdvertisementsPanelState extends State<AdminAdvertisementsPanel> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: const Color(0xFFF5F3FF),
+      color: context.colors.secondaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -162,9 +164,9 @@ class _AdminAdvertisementsPanelState extends State<AdminAdvertisementsPanel> {
           children: [
             Row(
               children: [
-                const CircleAvatar(
-                  backgroundColor: Color(0xFFE0E7FF),
-                  child: Icon(Icons.campaign_outlined),
+                CircleAvatar(
+                  backgroundColor: context.colors.secondaryContainer,
+                  child: const Icon(Icons.campaign_outlined),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -195,7 +197,7 @@ class _AdminAdvertisementsPanelState extends State<AdminAdvertisementsPanel> {
             else if (_error != null)
               Text(
                 'โหลดโฆษณาไม่สำเร็จ: $_error\nโปรดรันไฟล์ add_listing_advertisements.sql ใน Supabase ก่อน',
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(color: context.colors.danger),
               )
             else if (_ads.isEmpty)
               const Padding(
@@ -214,9 +216,9 @@ class _AdminAdvertisementsPanelState extends State<AdminAdvertisementsPanel> {
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: listing['thumbnail_url'] == null
-                        ? const ColoredBox(
-                            color: Color(0xFFDBEAFE),
-                            child: SizedBox.square(
+                        ? ColoredBox(
+                            color: context.colors.primaryContainer,
+                            child: const SizedBox.square(
                               dimension: 58,
                               child: Icon(Icons.apartment),
                             ),
@@ -454,8 +456,8 @@ class _AdvertisementDialogState extends State<_AdvertisementDialog> {
             Container(
               height: 210,
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                color: context.colors.surfaceMuted,
+                border: Border.all(color: context.colors.border),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: _filteredListings.isEmpty
@@ -469,13 +471,13 @@ class _AdvertisementDialogState extends State<_AdvertisementDialog> {
                         final selected = item['id'] == _listingId;
                         return ListTile(
                           selected: selected,
-                          selectedTileColor: const Color(0xFFEEF2FF),
+                          selectedTileColor: context.colors.secondaryContainer,
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(9),
                             child: item['thumbnail_url'] == null
-                                ? const ColoredBox(
-                                    color: Color(0xFFE0E7FF),
-                                    child: SizedBox.square(
+                                ? ColoredBox(
+                                    color: context.colors.secondaryContainer,
+                                    child: const SizedBox.square(
                                       dimension: 46,
                                       child: Icon(Icons.apartment_outlined),
                                     ),
@@ -503,8 +505,8 @@ class _AdvertisementDialogState extends State<_AdvertisementDialog> {
                                 ? Icons.check_circle
                                 : Icons.radio_button_unchecked,
                             color: selected
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFF94A3B8),
+                                ? context.colors.success
+                                : context.colors.textMuted,
                           ),
                           onTap: () =>
                               setState(() => _listingId = item['id'] as String),
@@ -648,24 +650,24 @@ class _SelectedListingCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: const Color(0xFFECFDF5),
-      border: Border.all(color: const Color(0xFF86EFAC)),
+      color: context.colors.successContainer,
+      border: Border.all(color: context.colors.successContainerBorder),
       borderRadius: BorderRadius.circular(14),
     ),
     child: Row(
       children: [
-        const CircleAvatar(
-          backgroundColor: Color(0xFFDCFCE7),
-          child: Icon(Icons.check, color: Color(0xFF15803D)),
+        CircleAvatar(
+          backgroundColor: context.colors.successContainer,
+          child: Icon(Icons.check, color: context.colors.success),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'เลือกแล้ว',
-                style: TextStyle(fontSize: 11, color: Color(0xFF15803D)),
+                style: TextStyle(fontSize: 11, color: context.colors.success),
               ),
               Text(
                 listing['title'] as String? ?? 'ไม่ระบุชื่อ',
@@ -675,7 +677,10 @@ class _SelectedListingCard extends StatelessWidget {
                 '$location • $price',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.colors.textMuted,
+                ),
               ),
             ],
           ),

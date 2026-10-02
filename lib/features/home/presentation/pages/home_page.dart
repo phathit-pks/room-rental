@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/relative_date_formatter.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/auth/presentation/widgets/client_auth_button.dart';
@@ -283,7 +284,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FAFF),
+      backgroundColor: context.colors.background,
       body: _InteractivePageBackground(
         child: SelectionArea(
           child: CustomScrollView(
@@ -475,7 +476,7 @@ class _NavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: context.colors.surface,
       child: _PageWidth(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -495,6 +496,11 @@ class _NavigationBar extends StatelessWidget {
                 TextButton(onPressed: () {}, child: const Text('เกี่ยวกับเรา')),
                 const SizedBox(width: 12),
               ],
+              IconButton(
+                tooltip: 'ตั้งค่า',
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => Navigator.pushNamed(context, '/settings'),
+              ),
               const ClientAuthButton(),
             ],
           ),
@@ -519,9 +525,13 @@ class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Color(0xFFECFDF5)],
+          colors: [
+            context.colors.primaryContainer,
+            context.colors.background,
+            context.colors.successContainer,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -668,14 +678,14 @@ class _SponsoredListingState extends State<_SponsoredListing> {
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
+        border: Border.all(color: context.colors.border),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x140F172A),
+            color: context.colors.shadow.withAlpha(0x14),
             blurRadius: 24,
-            offset: Offset(0, 8),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -684,9 +694,12 @@ class _SponsoredListingState extends State<_SponsoredListing> {
           final compact = constraints.maxWidth < 720;
           final preview = Container(
             height: compact ? 210 : 300,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFFBFDBFE), Color(0xFFDBEAFE)],
+                colors: [
+                  context.colors.primaryContainerStrong,
+                  context.colors.primaryContainer,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -695,11 +708,11 @@ class _SponsoredListingState extends State<_SponsoredListing> {
               children: [
                 Positioned.fill(
                   child: room.imageUrl.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Icon(
                             Icons.apartment_rounded,
                             size: 132,
-                            color: Color(0x662563EB),
+                            color: context.colors.primary.withAlpha(0x66),
                           ),
                         )
                       : Image.network(room.imageUrl, fit: BoxFit.cover),
@@ -724,16 +737,16 @@ class _SponsoredListingState extends State<_SponsoredListing> {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.location_on_outlined,
                       size: 19,
-                      color: Color(0xFF64748B),
+                      color: context.colors.textMuted,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         room.location,
-                        style: const TextStyle(color: Color(0xFF64748B)),
+                        style: TextStyle(color: context.colors.textMuted),
                       ),
                     ),
                   ],
@@ -741,15 +754,15 @@ class _SponsoredListingState extends State<_SponsoredListing> {
                 const SizedBox(height: 18),
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.schedule_outlined,
                       size: 18,
-                      color: Color(0xFF64748B),
+                      color: context.colors.textMuted,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       'อัปเดต${formatRelativeDate(DateTime.now())}',
-                      style: const TextStyle(color: Color(0xFF64748B)),
+                      style: TextStyle(color: context.colors.textMuted),
                     ),
                   ],
                 ),
@@ -818,15 +831,15 @@ class _SponsoredBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(99),
     ),
-    child: const Row(
+    child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.campaign_outlined, size: 17, color: Color(0xFF2563EB)),
-        SizedBox(width: 6),
-        Text('โฆษณา', style: TextStyle(fontWeight: FontWeight.bold)),
+        Icon(Icons.campaign_outlined, size: 17, color: context.colors.primary),
+        const SizedBox(width: 6),
+        const Text('โฆษณา', style: TextStyle(fontWeight: FontWeight.bold)),
       ],
     ),
   );
@@ -841,9 +854,9 @@ class _Amenity extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 18, color: const Color(0xFF475569)),
+      Icon(icon, size: 18, color: context.colors.textSecondary),
       const SizedBox(width: 5),
-      Text(label, style: const TextStyle(color: Color(0xFF475569))),
+      Text(label, style: TextStyle(color: context.colors.textSecondary)),
     ],
   );
 }
@@ -858,17 +871,18 @@ class _PromotionBanner extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 150),
       padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF172554), Color(0xFF2563EB)],
+        gradient: LinearGradient(
+          // Always a dark-to-primary accent gradient, in both light and dark mode.
+          colors: [const Color(0xFF172554), context.colors.primary],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x292563EB),
+            color: context.colors.primary.withAlpha(0x29),
             blurRadius: 24,
-            offset: Offset(0, 10),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -881,11 +895,11 @@ class _PromotionBanner extends StatelessWidget {
                 ? CrossAxisAlignment.center
                 : CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'มีห้องว่างให้เช่า?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: context.colors.onPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                 ),
@@ -894,7 +908,10 @@ class _PromotionBanner extends StatelessWidget {
               Text(
                 'โปรโมตประกาศของคุณให้ผู้เช่าเห็นก่อนใคร',
                 textAlign: compact ? TextAlign.center : TextAlign.left,
-                style: const TextStyle(color: Color(0xFFDBEAFE), fontSize: 16),
+                style: TextStyle(
+                  color: context.colors.primaryContainer,
+                  fontSize: 16,
+                ),
               ),
             ],
           );
@@ -903,8 +920,8 @@ class _PromotionBanner extends StatelessWidget {
             icon: const Icon(Icons.add_home_work_outlined),
             label: const Text('ลงประกาศ'),
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF1D4ED8),
+              backgroundColor: context.colors.surface,
+              foregroundColor: context.colors.primary,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
             ),
           );
@@ -917,9 +934,9 @@ class _PromotionBanner extends StatelessWidget {
           }
           return Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.campaign_outlined,
-                color: Colors.white,
+                color: context.colors.onPrimary,
                 size: 54,
               ),
               const SizedBox(width: 22),
@@ -944,7 +961,7 @@ Future<void> _showNoticeDialog(
     context: context,
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: const Color(0x660F172A),
+    barrierColor: context.colors.shadow.withAlpha(0x66),
     transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (context, _, _) =>
         _NoticeDialog(icon: icon, title: title, message: message),
@@ -984,18 +1001,18 @@ class _NoticeDialog extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
           child: Material(
-            color: Colors.white,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(24),
             elevation: 0,
             child: Container(
               padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x290F172A),
+                    color: context.colors.shadow.withAlpha(0x29),
                     blurRadius: 40,
-                    offset: Offset(0, 20),
+                    offset: const Offset(0, 20),
                   ),
                 ],
               ),
@@ -1005,34 +1022,37 @@ class _NoticeDialog extends StatelessWidget {
                   Container(
                     width: 72,
                     height: 72,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
+                        colors: [
+                          context.colors.primaryContainer,
+                          context.colors.primaryContainerStrong,
+                        ],
                       ),
                     ),
-                    child: Icon(icon, size: 36, color: Color(0xFF2563EB)),
+                    child: Icon(icon, size: 36, color: context.colors.primary),
                   ),
                   const SizedBox(height: 20),
                   Text(
                     title,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A),
+                      color: context.colors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 10),
                   Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       height: 1.5,
-                      color: Color(0xFF64748B),
+                      color: context.colors.textMuted,
                     ),
                   ),
                   const SizedBox(height: 28),
@@ -1041,7 +1061,7 @@ class _NoticeDialog extends StatelessWidget {
                     child: FilledButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
+                        backgroundColor: context.colors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -1170,13 +1190,13 @@ class _SearchBoxState extends State<_SearchBox> {
       constraints: const BoxConstraints(maxWidth: 900),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x180F172A),
+            color: context.colors.shadow.withAlpha(0x18),
             blurRadius: 26,
-            offset: Offset(0, 10),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -1223,11 +1243,11 @@ class _SearchBoxState extends State<_SearchBox> {
               final searchButton = FilledButton.icon(
                 onPressed: _searching ? null : _search,
                 icon: _searching
-                    ? const SizedBox.square(
+                    ? SizedBox.square(
                         dimension: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: context.colors.onPrimary,
                         ),
                       )
                     : const Icon(Icons.search),
@@ -1316,10 +1336,10 @@ class _LocationDropdown extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF475569),
+              color: context.colors.textSecondary,
             ),
           ),
         ),
@@ -1328,8 +1348,8 @@ class _LocationDropdown extends StatelessWidget {
           initialValue: value,
           isExpanded: true,
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: const Color(0xFF2563EB)),
-            fillColor: const Color(0xFFF8FAFC),
+            prefixIcon: Icon(icon, color: context.colors.primary),
+            fillColor: context.colors.surfaceMuted,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 14,
@@ -1355,9 +1375,9 @@ class _TrustItem extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 19, color: const Color(0xFF16A34A)),
+      Icon(icon, size: 19, color: context.colors.success),
       const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: Color(0xFF475569))),
+      Text(label, style: TextStyle(color: context.colors.textSecondary)),
     ],
   );
 }
@@ -1409,7 +1429,7 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                             : widget.usingCurrentLocation
                             ? 'ที่พักใกล้ตำแหน่งปัจจุบันของคุณ • สูงสุด 9 รายการ'
                             : 'ประกาศล่าสุด • สูงสุด 9 รายการ',
-                        style: const TextStyle(color: Color(0xFF64748B)),
+                        style: TextStyle(color: context.colors.textMuted),
                       ),
                     ],
                   ),
@@ -1581,20 +1601,20 @@ class _ListingSkeletonCard extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: context.colors.border),
       ),
       child: Stack(
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
+              Expanded(
                 flex: 11,
                 child: ColoredBox(
-                  color: Color(0xFFE2E8F0),
-                  child: Align(
+                  color: context.colors.border,
+                  child: const Align(
                     alignment: Alignment.topRight,
                     child: Padding(
                       padding: EdgeInsets.all(12),
@@ -1609,18 +1629,18 @@ class _ListingSkeletonCard extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      _SkeletonLine(widthFactor: .72, height: 20),
-                      SizedBox(height: 12),
-                      _SkeletonBlock(width: 84, height: 28),
-                      SizedBox(height: 14),
-                      _SkeletonLine(widthFactor: .9, height: 12),
-                      SizedBox(height: 10),
-                      _SkeletonLine(widthFactor: .45, height: 12),
-                      Spacer(),
-                      Divider(height: 1, color: Color(0xFFE2E8F0)),
-                      SizedBox(height: 8),
-                      Row(
+                    children: [
+                      const _SkeletonLine(widthFactor: .72, height: 20),
+                      const SizedBox(height: 12),
+                      const _SkeletonBlock(width: 84, height: 28),
+                      const SizedBox(height: 14),
+                      const _SkeletonLine(widthFactor: .9, height: 12),
+                      const SizedBox(height: 10),
+                      const _SkeletonLine(widthFactor: .45, height: 12),
+                      const Spacer(),
+                      Divider(height: 1, color: context.colors.border),
+                      const SizedBox(height: 8),
+                      const Row(
                         children: [
                           Expanded(child: _SkeletonBlock(height: 40)),
                           SizedBox(width: 10),
@@ -1685,7 +1705,7 @@ class _SkeletonBlock extends StatelessWidget {
     width: width,
     height: height,
     decoration: BoxDecoration(
-      color: const Color(0xFFEDF1F7),
+      color: context.colors.surfaceMuted,
       borderRadius: BorderRadius.circular(99),
     ),
   );
@@ -1703,7 +1723,7 @@ class _SkeletonLine extends StatelessWidget {
     child: Container(
       height: height,
       decoration: BoxDecoration(
-        color: const Color(0xFFEDF1F7),
+        color: context.colors.surfaceMuted,
         borderRadius: BorderRadius.circular(99),
       ),
     ),
@@ -1754,8 +1774,8 @@ class _Pagination extends StatelessWidget {
             FilledButton(
               onPressed: null,
               style: FilledButton.styleFrom(
-                disabledBackgroundColor: const Color(0xFF2563EB),
-                disabledForegroundColor: Colors.white,
+                disabledBackgroundColor: context.colors.primary,
+                disabledForegroundColor: context.colors.onPrimary,
                 minimumSize: const Size(44, 44),
               ),
               child: Text('${pages[index]}'),
@@ -1801,7 +1821,7 @@ class _RoomCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        side: BorderSide(color: context.colors.border),
       ),
       child: InkWell(
         onTap: () => _openDetail(context),
@@ -1811,28 +1831,28 @@ class _RoomCard extends StatelessWidget {
             Expanded(
               flex: 11,
               child: Container(
-                color: const Color(0xFFDCEAFE),
+                color: context.colors.primaryContainer,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     Hero(
                       tag: _heroTag,
                       child: ColoredBox(
-                        color: const Color(0xFFDCEAFE),
+                        color: context.colors.primaryContainer,
                         child: room.imageUrl.isNotEmpty
                             ? Image.network(
                                 room.imageUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const Icon(
+                                errorBuilder: (_, _, _) => Icon(
                                   Icons.broken_image_outlined,
                                   size: 64,
-                                  color: Color(0x552563EB),
+                                  color: context.colors.primary.withAlpha(0x55),
                                 ),
                               )
-                            : const Icon(
+                            : Icon(
                                 Icons.apartment_outlined,
                                 size: 82,
-                                color: Color(0x552563EB),
+                                color: context.colors.primary.withAlpha(0x55),
                               ),
                       ),
                     ),
@@ -1847,23 +1867,25 @@ class _RoomCard extends StatelessWidget {
                             vertical: 7,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.92),
+                            color: context.colors.surface.withValues(
+                              alpha: 0.92,
+                            ),
                             borderRadius: BorderRadius.circular(999),
-                            boxShadow: const [
+                            boxShadow: [
                               BoxShadow(
-                                color: Color(0x1A0F172A),
+                                color: context.colors.shadow.withAlpha(0x1A),
                                 blurRadius: 10,
-                                offset: Offset(0, 3),
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.verified_user_outlined,
                                 size: 15,
-                                color: Color(0xFF2563EB),
+                                color: context.colors.primary,
                               ),
                               const SizedBox(width: 5),
                               Flexible(
@@ -1871,10 +1893,10 @@ class _RoomCard extends StatelessWidget {
                                   'เพิ่มโดย: ${room.submittedByName!.trim()}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF334155),
+                                    color: context.colors.textSecondary,
                                   ),
                                 ),
                               ),
@@ -1915,13 +1937,13 @@ class _RoomCard extends StatelessWidget {
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: context.colors.primaryContainer,
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
                         _propertyTypeLabel(room.propertyType),
-                        style: const TextStyle(
-                          color: Color(0xFF2563EB),
+                        style: TextStyle(
+                          color: context.colors.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -1931,10 +1953,10 @@ class _RoomCard extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.location_on_outlined,
                           size: 17,
-                          color: Color(0xFF64748B),
+                          color: context.colors.textMuted,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -1942,8 +1964,8 @@ class _RoomCard extends StatelessWidget {
                             room.location,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
+                            style: TextStyle(
+                              color: context.colors.textMuted,
                               height: 1.35,
                             ),
                           ),
@@ -1954,16 +1976,16 @@ class _RoomCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.near_me_outlined,
                             size: 16,
-                            color: Color(0xFF2563EB),
+                            color: context.colors.primary,
                           ),
                           const SizedBox(width: 5),
                           Text(
                             'ห่างจากคุณ ${_distanceLabel(room.distanceMeters!)}',
-                            style: const TextStyle(
-                              color: Color(0xFF2563EB),
+                            style: TextStyle(
+                              color: context.colors.primary,
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                             ),
@@ -1972,7 +1994,7 @@ class _RoomCard extends StatelessWidget {
                       ),
                     ],
                     const Spacer(),
-                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    Divider(height: 1, color: context.colors.border),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -2039,7 +2061,7 @@ class _HowItWorksSection extends StatelessWidget {
       (Icons.chat_outlined, 'ติดต่อ', 'พูดคุยกับเจ้าของห้องได้โดยตรง'),
     ];
     return Container(
-      color: Colors.white,
+      color: context.colors.surface,
       child: _PageWidth(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 72),
@@ -2065,10 +2087,10 @@ class _HowItWorksSection extends StatelessWidget {
                       children: [
                         CircleAvatar(
                           radius: 34,
-                          backgroundColor: const Color(0xFFDBEAFE),
+                          backgroundColor: context.colors.primaryContainer,
                           child: Icon(
                             step.$1,
-                            color: const Color(0xFF2563EB),
+                            color: context.colors.primary,
                             size: 30,
                           ),
                         ),
@@ -2084,7 +2106,7 @@ class _HowItWorksSection extends StatelessWidget {
                         Text(
                           step.$3,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Color(0xFF64748B)),
+                          style: TextStyle(color: context.colors.textMuted),
                         ),
                       ],
                     ),
@@ -2110,6 +2132,7 @@ class _CallToAction extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 54),
         decoration: BoxDecoration(
+          // Always a dark accent panel, in both light and dark mode.
           color: const Color(0xFF0F172A),
           borderRadius: BorderRadius.circular(28),
         ),
@@ -2118,15 +2141,15 @@ class _CallToAction extends StatelessWidget {
             Text(
               'มีห้องแถวให้เช่า?',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Colors.white,
+                color: context.colors.onPrimary,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'ลงทะเบียนเพื่ออัปโหลดห้องแถวของคุณฟรี',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 16),
+              style: TextStyle(color: context.colors.borderStrong, fontSize: 16),
             ),
             const SizedBox(height: 24),
             FilledButton(
@@ -2153,7 +2176,7 @@ class _Footer extends StatelessWidget {
           const Spacer(),
           Text(
             '© ${DateTime.now().year} Room Rental',
-            style: const TextStyle(color: Color(0xFF64748B)),
+            style: TextStyle(color: context.colors.textMuted),
           ),
         ],
       ),
@@ -2172,8 +2195,6 @@ class _NavigateButton extends StatefulWidget {
 
 class _NavigateButtonState extends State<_NavigateButton>
     with TickerProviderStateMixin {
-  static const _accent = Color(0xFF2563EB);
-
   late final _fill = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 450),
@@ -2215,12 +2236,13 @@ class _NavigateButtonState extends State<_NavigateButton>
   @override
   Widget build(BuildContext context) {
     final outline = Theme.of(context).colorScheme.outline;
+    final accent = context.colors.primary;
     return AnimatedBuilder(
       animation: Listenable.merge([_fill, _shoot]),
       builder: (context, _) {
         final fill = Curves.easeOutCubic.transform(_fill.value);
         final shape = StadiumBorder(
-          side: BorderSide(color: Color.lerp(outline, _accent, fill)!),
+          side: BorderSide(color: Color.lerp(outline, accent, fill)!),
         );
         return Material(
           shape: shape,
@@ -2240,10 +2262,13 @@ class _NavigateButtonState extends State<_NavigateButton>
                     child: FractionallySizedBox(
                       alignment: Alignment.centerLeft,
                       widthFactor: fill,
-                      child: const DecoratedBox(
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
+                            colors: [
+                              context.colors.primaryContainer,
+                              context.colors.primaryContainerStrong,
+                            ],
                           ),
                         ),
                       ),
@@ -2255,10 +2280,10 @@ class _NavigateButtonState extends State<_NavigateButton>
                       children: [
                         _ShootingArrow(progress: _shoot.value),
                         const SizedBox(width: 8),
-                        const Text(
+                        Text(
                           'นำทาง',
                           style: TextStyle(
-                            color: _accent,
+                            color: accent,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -2299,10 +2324,10 @@ class _ShootingArrow extends StatelessWidget {
       offset: offset,
       child: Opacity(
         opacity: opacity,
-        child: const Icon(
+        child: Icon(
           Icons.near_me_rounded,
           size: 20,
-          color: Color(0xFF2563EB),
+          color: context.colors.primary,
         ),
       ),
     );
@@ -2425,7 +2450,10 @@ class _FavoriteButtonState extends State<_FavoriteButton>
                 if (_liking && _controller.isAnimating)
                   Positioned.fill(
                     child: CustomPaint(
-                      painter: _HeartBurstPainter(_controller.value),
+                      painter: _HeartBurstPainter(
+                        _controller.value,
+                        context.colors.danger,
+                      ),
                     ),
                   ),
                 Transform.scale(scale: scale, child: child),
@@ -2433,8 +2461,8 @@ class _FavoriteButtonState extends State<_FavoriteButton>
             );
           },
           child: Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC),
+            decoration: BoxDecoration(
+              color: context.colors.background,
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -2443,8 +2471,8 @@ class _FavoriteButtonState extends State<_FavoriteButton>
               icon: Icon(
                 liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                 color: liked
-                    ? const Color(0xFFDC2626)
-                    : const Color(0xFF475569),
+                    ? context.colors.danger
+                    : context.colors.textSecondary,
               ),
             ),
           ),
@@ -2456,9 +2484,10 @@ class _FavoriteButtonState extends State<_FavoriteButton>
 
 /// An expanding ring followed by a burst of dots around the heart.
 class _HeartBurstPainter extends CustomPainter {
-  _HeartBurstPainter(this.progress);
+  _HeartBurstPainter(this.progress, this.ringColor);
 
   final double progress;
+  final Color ringColor;
 
   static const _colors = [
     Color(0xFFDC2626),
@@ -2479,7 +2508,7 @@ class _HeartBurstPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 5 * (1 - eased)
-          ..color = const Color(0xFFDC2626).withValues(alpha: 0.5 * (1 - ring)),
+          ..color = ringColor.withValues(alpha: 0.5 * (1 - ring)),
       );
     }
 
@@ -2500,5 +2529,5 @@ class _HeartBurstPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_HeartBurstPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+      oldDelegate.progress != progress || oldDelegate.ringColor != ringColor;
 }

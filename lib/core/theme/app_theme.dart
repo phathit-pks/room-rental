@@ -1,25 +1,43 @@
 import 'package:flutter/material.dart';
 
+import 'app_colors.dart';
+
 abstract final class AppTheme {
-  static ThemeData get light {
-    const primary = Color(0xFF2563EB);
+  static ThemeData get light => _build(AppColors.light, Brightness.light);
+
+  static ThemeData get dark => _build(AppColors.dark, Brightness.dark);
+
+  static ThemeData _build(AppColors colors, Brightness brightness) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: colors.primary,
+      brightness: brightness,
+    ).copyWith(
+      primary: colors.primary,
+      onPrimary: colors.onPrimary,
+      primaryContainer: colors.primaryContainer,
+      onPrimaryContainer: colors.onPrimaryContainer,
+      secondaryContainer: colors.secondaryContainer,
+      onSecondaryContainer: colors.onSecondaryContainer,
+      error: colors.danger,
+      errorContainer: colors.dangerContainer,
+      surface: colors.surface,
+      onSurface: colors.textPrimary,
+    );
+
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: primary).copyWith(
-        primary: primary,
-        onPrimary: Colors.white,
-        primaryContainer: const Color(0xFFDBEAFE),
-        onPrimaryContainer: const Color(0xFF1E3A8A),
-      ),
-      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-      inputDecorationTheme: const InputDecorationTheme(
+      brightness: brightness,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: colors.background,
+      inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
+        fillColor: colors.surface,
+        border: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(14)),
           borderSide: BorderSide.none,
         ),
       ),
+      extensions: [colors],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart' as picker;
 import 'package:flutter/material.dart';
 import 'package:room_rental/core/config/supabase_config.dart';
+import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
 import 'package:room_rental/core/utils/thumbnail_compressor.dart';
 import 'package:room_rental/features/auth/presentation/widgets/client_auth_button.dart';
@@ -230,9 +231,9 @@ class _ContactPageState extends State<ContactPage> {
         final signedIn = Supabase.instance.client.auth.currentUser != null;
         return Container(
           width: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC)],
+              colors: [context.colors.primaryContainer, context.colors.background],
             ),
           ),
           child: Center(
@@ -262,10 +263,10 @@ class _ContactPageState extends State<ContactPage> {
   Widget _signInRequired() => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      const Icon(
+      Icon(
         Icons.lock_person_outlined,
         size: 62,
-        color: Color(0xFF2563EB),
+        color: context.colors.primary,
       ),
       const SizedBox(height: 18),
       const Text(
@@ -289,10 +290,14 @@ class _ContactPageState extends State<ContactPage> {
   Widget _success() => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      const CircleAvatar(
+      CircleAvatar(
         radius: 34,
-        backgroundColor: Color(0xFFDCFCE7),
-        child: Icon(Icons.hourglass_top, size: 34, color: Color(0xFF16A34A)),
+        backgroundColor: context.colors.successContainer,
+        child: Icon(
+          Icons.hourglass_top,
+          size: 34,
+          color: context.colors.success,
+        ),
       ),
       const SizedBox(height: 18),
       const Text(
@@ -334,9 +339,9 @@ class _ContactPageState extends State<ContactPage> {
             'ส่งข้อมูลที่พักฟรี',
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
-          const Text(
+          Text(
             'ทุกประกาศจะผ่านการตรวจสอบก่อนเผยแพร่',
-            style: TextStyle(color: Color(0xFF64748B)),
+            style: TextStyle(color: context.colors.textMuted),
           ),
           const SizedBox(height: 22),
           OutlinedButton.icon(
@@ -574,7 +579,7 @@ class _ContactPageState extends State<ContactPage> {
               helperStyle: TextStyle(
                 color: _mapUrl.text.trim().isNotEmpty && !hasDetectedCoordinates
                     ? Colors.orange.shade800
-                    : const Color(0xFF64748B),
+                    : context.colors.textMuted,
               ),
             ),
             validator: (value) {
@@ -587,7 +592,7 @@ class _ContactPageState extends State<ContactPage> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(_error!, style: TextStyle(color: context.colors.danger)),
           ],
           const SizedBox(height: 20),
           FilledButton.icon(

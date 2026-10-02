@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:room_rental/core/theme/app_colors.dart';
+
 class PrivacyConsentGate extends StatefulWidget {
   const PrivacyConsentGate({required this.child, super.key});
 
@@ -64,7 +66,7 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
     }
     if (_accepted) return widget.child;
     return Scaffold(
-      backgroundColor: const Color(0xAA0F172A),
+      backgroundColor: context.colors.shadow.withAlpha(0xAA),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -79,23 +81,27 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(24),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF172554), Color(0xFF2563EB)],
+                          colors: [
+                            context.colors.textPrimary,
+                            context.colors.primary,
+                          ],
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
                           CircleAvatar(
                             radius: 26,
-                            backgroundColor: Colors.white24,
+                            backgroundColor: context.colors.onPrimary
+                                .withAlpha(0x3D),
                             child: Icon(
                               Icons.privacy_tip_outlined,
-                              color: Colors.white,
+                              color: context.colors.onPrimary,
                               size: 29,
                             ),
                           ),
-                          SizedBox(width: 16),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,15 +109,17 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                                 Text(
                                   'นโยบายการใช้งานและความเป็นส่วนตัว',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: context.colors.onPrimary,
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                SizedBox(height: 4),
+                                const SizedBox(height: 4),
                                 Text(
                                   'โปรดอ่านและยอมรับก่อนเข้าใช้งานเว็บไซต์',
-                                  style: TextStyle(color: Color(0xFFDBEAFE)),
+                                  style: TextStyle(
+                                    color: context.colors.primaryContainer,
+                                  ),
                                 ),
                               ],
                             ),
@@ -185,11 +193,11 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
+                          Text(
                             'การยอมรับจะถูกจำไว้เฉพาะใน Browser เครื่องนี้ และสามารถล้างได้ด้วยการล้างข้อมูลเว็บไซต์',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: context.colors.textMuted,
                               fontSize: 12,
                             ),
                           ),
@@ -225,10 +233,10 @@ class _PolicySection extends StatelessWidget {
       Container(
         padding: const EdgeInsets.all(9),
         decoration: BoxDecoration(
-          color: const Color(0xFFEEF2FF),
+          color: context.colors.primaryContainer,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: const Color(0xFF2563EB)),
+        child: Icon(icon, color: context.colors.primary),
       ),
       const SizedBox(width: 12),
       Expanded(
@@ -242,7 +250,10 @@ class _PolicySection extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               text,
-              style: const TextStyle(height: 1.55, color: Color(0xFF475569)),
+              style: TextStyle(
+                height: 1.55,
+                color: context.colors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -264,11 +275,15 @@ class _ConsentCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: value ? const Color(0xFFEEF2FF) : const Color(0xFFF8FAFC),
+    color: value
+        ? context.colors.primaryContainer
+        : context.colors.background,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
       side: BorderSide(
-        color: value ? const Color(0xFFA5B4FC) : const Color(0xFFE2E8F0),
+        color: value
+            ? context.colors.primaryContainerStrong
+            : context.colors.border,
       ),
     ),
     child: CheckboxListTile(

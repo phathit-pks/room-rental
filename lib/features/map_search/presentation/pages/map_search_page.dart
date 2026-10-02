@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/listings/data/repositories/listing_repository.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
@@ -149,7 +150,7 @@ class _MapSearchPageState extends State<MapSearchPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: context.colors.danger,
           content: Text('ค้นหาห้องไม่สำเร็จ: $error'),
         ),
       );
@@ -180,11 +181,11 @@ class _MapSearchPageState extends State<MapSearchPage> {
                       ),
                     ),
                     if (results.length == 30)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           'แสดงเฉพาะ 30 ห้องที่ใกล้จุดศูนย์กลางที่สุด',
-                          style: TextStyle(color: Color(0xFF64748B)),
+                          style: TextStyle(color: context.colors.textMuted),
                         ),
                       ),
                   ],
@@ -265,8 +266,8 @@ class _MapSearchPageState extends State<MapSearchPage> {
                       _results.length == _maxResults
                           ? '$_maxResults ห้องที่ใกล้ศูนย์กลางที่สุด • $_radiusLabel'
                           : 'ภายในรัศมี $_radiusLabel • กดเพื่อดูรายละเอียด',
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
+                      style: TextStyle(
+                        color: context.colors.textMuted,
                         fontSize: 12,
                       ),
                     ),
@@ -298,9 +299,9 @@ class _MapSearchPageState extends State<MapSearchPage> {
                 leading: ClipRRect(
                   borderRadius: BorderRadius.circular(9),
                   child: room.imageUrl.isEmpty
-                      ? const ColoredBox(
-                          color: Color(0xFFE0E7FF),
-                          child: SizedBox.square(
+                      ? ColoredBox(
+                          color: context.colors.primaryContainer,
+                          child: const SizedBox.square(
                             dimension: 44,
                             child: Icon(Icons.home_work_outlined),
                           ),
@@ -379,8 +380,8 @@ class _MapSearchPageState extends State<MapSearchPage> {
                       point: _center!,
                       radius: _radiusMeters,
                       useRadiusInMeter: true,
-                      color: const Color(0x382563EB),
-                      borderColor: const Color(0xFF2563EB),
+                      color: context.colors.primary.withAlpha(0x38),
+                      borderColor: context.colors.primary,
                       borderStrokeWidth: 3,
                     ),
                   ],
@@ -428,10 +429,10 @@ class _MapSearchPageState extends State<MapSearchPage> {
                             message: room.title,
                             child: GestureDetector(
                               onTap: () => _openListing(room),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.location_pin,
                                 size: 44,
-                                color: Color(0xFFDC2626),
+                                color: context.colors.danger,
                               ),
                             ),
                           ),
@@ -460,12 +461,12 @@ class _MapSearchPageState extends State<MapSearchPage> {
                     child: Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: const Color(0xFFDBEAFE),
+                          backgroundColor: context.colors.primaryContainer,
                           child: Icon(
                             _drawing || _adjusting
                                 ? Icons.gesture
                                 : Icons.location_searching,
-                            color: const Color(0xFF2563EB),
+                            color: context.colors.primary,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -491,8 +492,8 @@ class _MapSearchPageState extends State<MapSearchPage> {
                                     : _adjusting
                                     ? 'ลากจุดกลางเพื่อย้าย • ลากจุดขอบเพื่อขยาย/ย่อ'
                                     : 'คุณยังสามารถเลื่อนและซูมแผนที่ได้',
-                                style: const TextStyle(
-                                  color: Color(0xFF64748B),
+                                style: TextStyle(
+                                  color: context.colors.textMuted,
                                   fontSize: 13,
                                 ),
                               ),
@@ -596,21 +597,21 @@ class _MapHandle extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: active ? const Color(0xFF2563EB) : Colors.white,
+              color: active ? context.colors.primary : context.colors.surface,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF2563EB), width: 3),
-              boxShadow: const [
+              border: Border.all(color: context.colors.primary, width: 3),
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x330F172A),
+                  color: context.colors.shadow.withAlpha(0x33),
                   blurRadius: 10,
-                  offset: Offset(0, 3),
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
             child: Icon(
               icon,
               size: 21,
-              color: active ? Colors.white : const Color(0xFF2563EB),
+              color: active ? context.colors.onPrimary : context.colors.primary,
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -98,7 +99,7 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
       setState(() => _error = 'อัปเดตประกาศไม่สำเร็จ: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: context.colors.danger,
           content: Text('อัปเดตไม่สำเร็จ: $error'),
         ),
       );
@@ -153,9 +154,9 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
                           imageUrls[index],
                           width: 300,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const ColoredBox(
-                            color: Color(0xFFE2E8F0),
-                            child: SizedBox(
+                          errorBuilder: (_, _, _) => ColoredBox(
+                            color: dialogContext.colors.border,
+                            child: const SizedBox(
                               width: 180,
                               child: Icon(Icons.broken_image_outlined),
                             ),
@@ -297,7 +298,7 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
   @override
   Widget build(BuildContext context) => Card(
     elevation: 0,
-    color: const Color(0xFFFFFBEB),
+    color: context.colors.warningContainer,
     child: Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -305,9 +306,9 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
         children: [
           Row(
             children: [
-              const CircleAvatar(
-                backgroundColor: Color(0xFFFEF3C7),
-                child: Icon(Icons.fact_check_outlined),
+              CircleAvatar(
+                backgroundColor: context.colors.warningContainer,
+                child: const Icon(Icons.fact_check_outlined),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -330,7 +331,7 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
           if (_error != null)
             Text(
               'โหลดข้อมูลไม่สำเร็จ: $_error',
-              style: const TextStyle(color: Colors.red),
+              style: TextStyle(color: context.colors.danger),
             )
           else if (_items == null)
             const Center(child: CircularProgressIndicator())
@@ -346,9 +347,9 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
                 leading: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: item['thumbnail_url'] == null
-                      ? const ColoredBox(
-                          color: Color(0xFFE2E8F0),
-                          child: SizedBox.square(
+                      ? ColoredBox(
+                          color: context.colors.border,
+                          child: const SizedBox.square(
                             dimension: 58,
                             child: Icon(Icons.home_work_outlined),
                           ),
@@ -437,11 +438,14 @@ class _DetailRow extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 19, color: const Color(0xFF5267A3)),
+        Icon(icon, size: 19, color: context.colors.textSecondary),
         const SizedBox(width: 10),
         SizedBox(
           width: 125,
-          child: Text(label, style: const TextStyle(color: Color(0xFF64748B))),
+          child: Text(
+            label,
+            style: TextStyle(color: context.colors.textMuted),
+          ),
         ),
         Expanded(child: SelectableText(value.isEmpty ? '-' : value)),
       ],

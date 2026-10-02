@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:room_rental/core/theme/app_colors.dart';
+
 Future<void> showClientSignInDialog(BuildContext context) => showDialog<void>(
   context: context,
   builder: (_) => const _GoogleSignInDialog(),
@@ -71,8 +73,8 @@ class ClientAuthButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(6, 5, 14, 5),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFCBD5E1)),
+              color: context.colors.surface,
+              border: Border.all(color: context.colors.borderStrong),
               borderRadius: BorderRadius.circular(99),
             ),
             child: Row(
@@ -80,7 +82,7 @@ class ClientAuthButton extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 15,
-                  backgroundColor: const Color(0xFFE0E7FF),
+                  backgroundColor: context.colors.primaryContainer,
                   backgroundImage: avatar == null ? null : NetworkImage(avatar),
                   child: avatar == null
                       ? const Icon(Icons.person_outline, size: 18)
@@ -147,8 +149,8 @@ class _GoogleSignInDialogState extends State<_GoogleSignInDialog> {
       width: 58,
       height: 58,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        color: Color(0xFFEFF6FF),
+      decoration: BoxDecoration(
+        color: context.colors.primaryContainer,
         shape: BoxShape.circle,
       ),
       child: const Icon(Icons.person_add_alt_1_outlined, size: 30),
@@ -178,7 +180,7 @@ class _GoogleSignInDialogState extends State<_GoogleSignInDialog> {
                       height: 24,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                        border: Border.all(color: context.colors.borderStrong),
                         shape: BoxShape.circle,
                       ),
                       child: const Text(
@@ -199,14 +201,14 @@ class _GoogleSignInDialogState extends State<_GoogleSignInDialog> {
             const SizedBox(height: 12),
             Text(
               _error!,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: TextStyle(color: context.colors.danger, fontSize: 12),
             ),
           ],
           const SizedBox(height: 14),
-          const Text(
+          Text(
             'การดำเนินการต่อหมายถึงคุณยอมรับนโยบายการใช้งานของเว็บไซต์',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 12),
           ),
         ],
       ),

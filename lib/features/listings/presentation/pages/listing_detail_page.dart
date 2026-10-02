@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -27,7 +28,7 @@ class ListingDetailPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _heroImage(),
+                  _heroImage(context),
                   if (room.galleryUrls.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     _gallerySection(context),
@@ -37,10 +38,10 @@ class ListingDetailPage extends StatelessWidget {
                     builder: (context, constraints) {
                       final details = Card(
                         elevation: 0,
-                        color: Colors.white,
+                        color: context.colors.surface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          side: BorderSide(color: context.colors.border),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(24),
@@ -81,16 +82,16 @@ class ListingDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _heroImage() {
+  Widget _heroImage(BuildContext context) {
     final image = ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: ColoredBox(
-        color: const Color(0xFFDCEAFE),
+        color: context.colors.primaryContainer,
         child: room.imageUrl.isEmpty
-            ? const Icon(
+            ? Icon(
                 Icons.apartment_outlined,
                 size: 120,
-                color: Color(0x552563EB),
+                color: context.colors.primary.withAlpha(0x55),
               )
             : Image.network(
                 room.imageUrl,
@@ -124,7 +125,7 @@ class ListingDetailPage extends StatelessWidget {
               onTap: () => showDialog<void>(
                 context: context,
                 builder: (_) => Dialog(
-                  backgroundColor: Colors.black,
+                  backgroundColor: context.colors.shadow,
                   insetPadding: const EdgeInsets.all(24),
                   child: Stack(
                     children: [
@@ -151,9 +152,9 @@ class ListingDetailPage extends StatelessWidget {
                   width: double.infinity,
                   height: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const ColoredBox(
-                    color: Color(0xFFE2E8F0),
-                    child: Icon(Icons.broken_image_outlined),
+                  errorBuilder: (_, _, _) => ColoredBox(
+                    color: context.colors.border,
+                    child: const Icon(Icons.broken_image_outlined),
                   ),
                 ),
               ),
@@ -206,13 +207,14 @@ class ListingDetailPage extends StatelessWidget {
       const SizedBox(height: 8),
       Text(
         _propertyTypeLabel(room.propertyType),
-        style: const TextStyle(
-          color: Color(0xFF2563EB),
+        style: TextStyle(
+          color: context.colors.primary,
           fontWeight: FontWeight.bold,
         ),
       ),
       const SizedBox(height: 16),
       _infoRow(
+        context,
         Icons.location_on_outlined,
         room.address?.trim().isNotEmpty == true ? room.address! : room.location,
       ),
@@ -251,10 +253,10 @@ class ListingDetailPage extends StatelessWidget {
     final sourceUri = SafeExternalUri.https(room.sourceUrl);
     return Card(
       elevation: 0,
-      color: const Color(0xFFF8FAFC),
+      color: context.colors.background,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        side: BorderSide(color: context.colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -306,21 +308,21 @@ class ListingDetailPage extends StatelessWidget {
         const SizedBox(height: 12),
         Card(
           elevation: 0,
-          color: Colors.white,
+          color: context.colors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
+            side: BorderSide(color: context.colors.border),
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: const Color(0xFFE0E7FF),
+                  backgroundColor: context.colors.primaryContainer,
                   child: Text(
                     room.submittedByName!.trim().characters.first.toUpperCase(),
-                    style: const TextStyle(
-                      color: Color(0xFF3730A3),
+                    style: TextStyle(
+                      color: context.colors.onSecondaryContainer,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -330,10 +332,10 @@ class ListingDetailPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'เพิ่มโดย',
                         style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: context.colors.textMuted,
                           fontSize: 12,
                         ),
                       ),
@@ -343,10 +345,10 @@ class ListingDetailPage extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      const Text(
+                      Text(
                         'สมาชิกที่ลงทะเบียนด้วย Google',
                         style: TextStyle(
-                          color: Color(0xFF16A34A),
+                          color: context.colors.success,
                           fontSize: 11,
                         ),
                       ),
@@ -390,10 +392,10 @@ class ListingDetailPage extends StatelessWidget {
                       point: point,
                       width: 52,
                       height: 58,
-                      child: const Icon(
+                      child: Icon(
                         Icons.location_pin,
                         size: 52,
-                        color: Color(0xFFDC2626),
+                        color: context.colors.danger,
                       ),
                     ),
                   ],
@@ -411,9 +413,9 @@ class ListingDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _infoRow(IconData icon, String text) => Row(
+  Widget _infoRow(BuildContext context, IconData icon, String text) => Row(
     children: [
-      Icon(icon, color: const Color(0xFF64748B)),
+      Icon(icon, color: context.colors.textMuted),
       const SizedBox(width: 8),
       Expanded(child: Text(text)),
     ],

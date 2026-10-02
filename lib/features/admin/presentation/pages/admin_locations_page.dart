@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart' as picker;
 import 'package:flutter/material.dart';
+import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/thumbnail_compressor.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
 import 'package:room_rental/features/listings/data/repositories/scraped_listing_repository.dart';
@@ -302,7 +303,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: context.colors.danger,
             content: Text('นำเข้าที่พักไม่สำเร็จ: $exception'),
           ),
         );
@@ -424,7 +425,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: context.colors.danger,
           content: Text('นำเข้าเมืองไม่สำเร็จ: $error'),
         ),
       );
@@ -507,7 +508,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: context.colors.danger,
           content: Text('นำเข้าบ้านไม่สำเร็จ: $error'),
         ),
       );
@@ -566,7 +567,9 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
               child: const Text('ยกเลิก'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              style: FilledButton.styleFrom(
+                backgroundColor: context.colors.danger,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('ลบ'),
             ),
@@ -590,7 +593,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: context.colors.danger,
           content: Text('บันทึกไม่สำเร็จ: $error'),
         ),
       );
@@ -613,10 +616,10 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.admin_panel_settings_outlined,
                       size: 52,
-                      color: Color(0xFF2563EB),
+                      color: context.colors.primary,
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -650,7 +653,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
                       const SizedBox(height: 12),
                       Text(
                         loginError!,
-                        style: const TextStyle(color: Colors.red),
+                        style: TextStyle(color: context.colors.danger),
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -706,13 +709,13 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 34,
-                      backgroundColor: Color(0xFFFEE2E2),
+                      backgroundColor: context.colors.dangerContainer,
                       child: Icon(
                         Icons.lock_outline,
                         size: 36,
-                        color: Color(0xFFDC2626),
+                        color: context.colors.danger,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -728,7 +731,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
                     Text(
                       '${user?.email ?? 'บัญชีนี้'} ไม่มีสิทธิ์จัดการข้อมูลหรืออนุมัติประกาศ',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xFF64748B)),
+                      style: TextStyle(color: context.colors.textMuted),
                     ),
                     const SizedBox(height: 22),
                     SizedBox(
@@ -764,7 +767,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       );
     }
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: const Text('Admin • จัดการพื้นที่'),
         actions: [
@@ -1306,9 +1309,9 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                     width: double.infinity,
                     height: 150,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: context.colors.surfaceMuted,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                      border: Border.all(color: context.colors.borderStrong),
                     ),
                     child: processingThumbnail
                         ? const Column(
@@ -1320,18 +1323,18 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                             ],
                           )
                         : thumbnail == null
-                        ? const Column(
+                        ? Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.add_photo_alternate_outlined,
                                 size: 42,
                               ),
-                              SizedBox(height: 8),
-                              Text('เพิ่มรูป Thumbnail (ไม่บังคับ)'),
+                              const SizedBox(height: 8),
+                              const Text('เพิ่มรูป Thumbnail (ไม่บังคับ)'),
                               Text(
                                 'รองรับ JPG, PNG และ WebP',
-                                style: TextStyle(color: Color(0xFF64748B)),
+                                style: TextStyle(color: context.colors.textMuted),
                               ),
                             ],
                           )
@@ -1412,7 +1415,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                             bottom: 4,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: Colors.black54,
+                                color: context.colors.shadow.withAlpha(0x8A),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Padding(
@@ -1422,8 +1425,8 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                                 ),
                                 child: Text(
                                   '${(file.bytes.lengthInBytes / 1024).ceil()} KB',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: context.colors.onPrimary,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -1631,7 +1634,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 12),
-                  Text(error!, style: const TextStyle(color: Colors.red)),
+                  Text(error!, style: TextStyle(color: context.colors.danger)),
                 ],
               ],
             ),
@@ -1764,7 +1767,7 @@ class _AiParserDialogState extends State<_AiParserDialog> {
             ),
             if (error != null) ...[
               const SizedBox(height: 12),
-              Text(error!, style: const TextStyle(color: Colors.red)),
+              Text(error!, style: TextStyle(color: context.colors.danger)),
             ],
             if (result != null) ...[
               const SizedBox(height: 18),
@@ -1779,10 +1782,10 @@ class _AiParserDialogState extends State<_AiParserDialog> {
               ),
               if (saved) ...[
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'บันทึกและเผยแพร่แล้ว',
                   style: TextStyle(
-                    color: Colors.green,
+                    color: context.colors.success,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1839,7 +1842,7 @@ class _StatCard extends StatelessWidget {
     width: 210,
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(18),
     ),
     child: Row(
@@ -1861,7 +1864,7 @@ class _StatCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-            Text(label, style: const TextStyle(color: Color(0xFF64748B))),
+            Text(label, style: TextStyle(color: context.colors.textMuted)),
           ],
         ),
       ],
@@ -1917,12 +1920,12 @@ class _LocationPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (!enabled)
-            const Padding(
-              padding: EdgeInsets.all(24),
+            Padding(
+              padding: const EdgeInsets.all(24),
               child: Text(
                 'เลือกรายการก่อนหน้าเพื่อจัดการข้อมูล',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF94A3B8)),
+                style: TextStyle(color: context.colors.textMuted),
               ),
             )
           else if (items.isEmpty)
@@ -1934,7 +1937,7 @@ class _LocationPanel extends StatelessWidget {
             ...items.map(
               (item) => ListTile(
                 selected: selected == item,
-                selectedTileColor: const Color(0xFFDBEAFE),
+                selectedTileColor: context.colors.primaryContainer,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
