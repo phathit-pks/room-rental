@@ -11,6 +11,7 @@ import 'package:room_rental/features/listings/data/services/rental_post_parser.d
 import 'package:room_rental/features/admin/presentation/widgets/admin_advertisements_panel.dart';
 import 'package:room_rental/features/admin/presentation/widgets/pending_listings_panel.dart';
 import 'package:room_rental/features/locations/data/location_store.dart';
+import 'package:room_rental/shared/widgets/searchable_select_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminLocationsPage extends StatefulWidget {
@@ -1334,7 +1335,9 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                               const Text('เพิ่มรูป Thumbnail (ไม่บังคับ)'),
                               Text(
                                 'รองรับ JPG, PNG และ WebP',
-                                style: TextStyle(color: context.colors.textMuted),
+                                style: TextStyle(
+                                  color: context.colors.textMuted,
+                                ),
                               ),
                             ],
                           )
@@ -1534,15 +1537,10 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableSelectField(
                   initialValue: province,
-                  decoration: const InputDecoration(labelText: 'แขวง *'),
-                  items: store.data.keys
-                      .map(
-                        (value) =>
-                            DropdownMenuItem(value: value, child: Text(value)),
-                      )
-                      .toList(),
+                  label: 'แขวง *',
+                  items: store.data.keys.toList(),
                   validator: (value) => value == null ? 'กรุณาเลือกแขวง' : null,
                   onChanged: (value) => setState(() {
                     province = value;
@@ -1554,17 +1552,10 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableSelectField(
                         initialValue: district,
-                        decoration: const InputDecoration(labelText: 'เมือง'),
-                        items: districts
-                            .map(
-                              (value) => DropdownMenuItem(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
+                        label: 'เมือง',
+                        items: districts.toList(),
                         onChanged: province == null
                             ? null
                             : (value) => setState(() {
@@ -1575,17 +1566,10 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableSelectField(
                         initialValue: village,
-                        decoration: const InputDecoration(labelText: 'บ้าน'),
-                        items: villages
-                            .map(
-                              (value) => DropdownMenuItem(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
+                        label: 'บ้าน',
+                        items: villages.toList(),
                         onChanged: district == null
                             ? null
                             : (value) => setState(() => village = value),
