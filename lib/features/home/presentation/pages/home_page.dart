@@ -290,6 +290,7 @@ class _HomePageState extends State<HomePage> {
                   isSearchMode: _isSearchMode,
                   usingCurrentLocation: _usingCurrentLocation,
                   onPageChanged: _changePage,
+                  onSearchPressed: _scrollToSearch,
                 ),
               ),
               const SliverToBoxAdapter(child: _HowItWorksSection()),
@@ -1378,11 +1379,13 @@ class _FeaturedSection extends StatefulWidget {
     required this.isSearchMode,
     required this.usingCurrentLocation,
     required this.onPageChanged,
+    required this.onSearchPressed,
   });
   final Future<ListingPage> listings;
   final bool isSearchMode;
   final bool usingCurrentLocation;
   final ValueChanged<int> onPageChanged;
+  final VoidCallback onSearchPressed;
 
   @override
   State<_FeaturedSection> createState() => _FeaturedSectionState();
@@ -1511,12 +1514,97 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                         onChanged: widget.onPageChanged,
                       ),
                     ],
+                    if (!widget.isSearchMode) ...[
+                      const SizedBox(height: 32),
+                      _SearchMorePrompt(onPressed: widget.onSearchPressed),
+                    ],
                   ],
                 );
               },
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SearchMorePrompt extends StatelessWidget {
+  const _SearchMorePrompt({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'อยากเห็นห้องมากกว่านี้?',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: colors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'เลือกแขวง เมือง หรือบ้านในช่องค้นหา เพื่อดูห้องทั้งหมดในพื้นที่ที่คุณต้องการ',
+          style: TextStyle(color: colors.textSecondary),
+        ),
+      ],
+    );
+    final button = FilledButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.search),
+      label: const Text('ค้นหาห้อง'),
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      ),
+    );
+    final icon = Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.travel_explore, color: colors.primary, size: 28),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colors.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.25)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth < 600
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      icon,
+                      const SizedBox(width: 16),
+                      Expanded(child: text),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(width: double.infinity, child: button),
+                ],
+              )
+            : Row(
+                children: [
+                  icon,
+                  const SizedBox(width: 16),
+                  Expanded(child: text),
+                  const SizedBox(width: 16),
+                  button,
+                ],
+              ),
       ),
     );
   }
