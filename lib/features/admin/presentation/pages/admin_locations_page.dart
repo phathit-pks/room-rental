@@ -1604,7 +1604,6 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                   keyboardType: TextInputType.url,
                   decoration: const InputDecoration(
                     labelText: 'Google Maps link หรือพิกัด',
-                    hintText: '17.908634442903843, 102.63205905992898',
                     prefixIcon: Icon(Icons.map_outlined),
                   ),
                   validator: (value) {
