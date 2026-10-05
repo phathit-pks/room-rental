@@ -1205,6 +1205,31 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
     super.dispose();
   }
 
+  Future<GoogleMapsLocation> _resolveMapLink(String url) async {
+    const notFound = FormatException(
+      'ไม่พบพิกัดจาก Google Maps link กรุณาตรวจสอบลิงก์อีกครั้ง',
+    );
+    final Map<String, dynamic> data;
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'resolve-google-maps-link',
+        body: {'url': url},
+      );
+      data = Map<String, dynamic>.from(response.data as Map);
+    } on FunctionException {
+      throw notFound;
+    }
+    final location = GoogleMapsLocation(
+      url: (data['url'] ?? url).toString(),
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
+    );
+    if (location.latitude == null || location.longitude == null) {
+      throw notFound;
+    }
+    return location;
+  }
+
   Future<void> _save() async {
     if (!(formKey.currentState?.validate() ?? false)) return;
     setState(() {
@@ -1220,7 +1245,11 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       );
       final priceMin = priceMinInput ?? priceMaxInput;
       final priceMax = priceMaxInput ?? priceMinInput;
-      final mapLocation = GoogleMapsLocation.tryParse(mapController.text);
+      var mapLocation = GoogleMapsLocation.tryParse(mapController.text);
+      if (mapLocation != null &&
+          (mapLocation.latitude == null || mapLocation.longitude == null)) {
+        mapLocation = await _resolveMapLink(mapLocation.url);
+      }
       String? thumbnailUrl;
       if (thumbnail != null) {
         thumbnailUrl = await repository.uploadThumbnail(
@@ -1278,6 +1307,8 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
         parsedData: parsed,
       );
       if (mounted) Navigator.pop(context, true);
+    } on FormatException catch (exception) {
+      if (mounted) setState(() => error = exception.message);
     } catch (exception) {
       if (mounted) setState(() => error = exception.toString());
     } finally {
@@ -1608,10 +1639,8 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) return null;
-                    final location = GoogleMapsLocation.tryParse(value);
-                    return location?.latitude == null ||
-                            location?.longitude == null
-                        ? 'ลิงก์นี้ไม่มีพิกัด กรุณาใส่ latitude, longitude หรือ URL แบบเต็ม'
+                    return GoogleMapsLocation.tryParse(value) == null
+                        ? 'กรุณาใส่ Google Maps link หรือ latitude, longitude'
                         : null;
                   },
                 ),
