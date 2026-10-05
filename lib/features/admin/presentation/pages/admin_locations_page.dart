@@ -10,6 +10,7 @@ import 'package:room_rental/core/utils/google_maps_location.dart';
 import 'package:room_rental/features/listings/data/repositories/scraped_listing_repository.dart';
 import 'package:room_rental/features/listings/data/services/rental_post_parser.dart';
 import 'package:room_rental/features/admin/presentation/widgets/admin_advertisements_panel.dart';
+import 'package:room_rental/features/admin/presentation/widgets/draft_listings_panel.dart';
 import 'package:room_rental/features/admin/presentation/widgets/pending_listings_panel.dart';
 import 'package:room_rental/features/admin/presentation/widgets/thumbnail_crop_dialog.dart';
 import 'package:room_rental/features/locations/data/location_store.dart';
@@ -38,6 +39,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   int? totalListings;
   int? publishedListings;
   int? pendingListings;
+  int draftsVersion = 0;
 
   @override
   void initState() {
@@ -52,7 +54,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       final totalResponse = await client
           .from('scraped_listings')
           .select('id')
-          .neq('status', 'rejected')
+          .not('status', 'in', '(rejected,draft)')
           .count(CountOption.exact);
       final approvedResponse = await client
           .from('scraped_listings')
@@ -158,17 +160,30 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   }
 
   Future<void> _openAddApartment() async {
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (_) => const _AddApartmentDialog(),
-    );
-    if (saved == true && mounted) {
-      _loadListingStats();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เพิ่ม Apartment และเผยแพร่แล้ว')),
-      );
+    if (await _openListingForm() && mounted) {
+      setState(() => draftsVersion++);
     }
+  }
+
+  /// Opens the listing form, optionally on an existing draft. Returns true
+  /// when the listing was saved as a draft or published.
+  Future<bool> _openListingForm([Map<String, dynamic>? draft]) async {
+    final result = await showDialog<_ListingSaveResult>(
+      context: context,
+      builder: (_) => _AddApartmentDialog(draft: draft),
+    );
+    if (result == null || !mounted) return false;
+    _loadListingStats();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result == _ListingSaveResult.published
+              ? 'บันทึกและเผยแพร่แล้ว'
+              : 'บันทึกแบบร่างแล้ว ยังไม่แสดงบนหน้าเว็บ',
+        ),
+      ),
+    );
+    return true;
   }
 
   String _cellText(Data? cell) {
@@ -933,6 +948,11 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
               const SizedBox(height: 28),
               const AdminAdvertisementsPanel(),
               const SizedBox(height: 28),
+              DraftListingsPanel(
+                key: ValueKey(draftsVersion),
+                onEdit: _openListingForm,
+              ),
+              const SizedBox(height: 28),
               const PendingListingsPanel(),
               const SizedBox(height: 28),
               LayoutBuilder(
@@ -1102,8 +1122,13 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   }
 }
 
+enum _ListingSaveResult { draft, published }
+
 class _AddApartmentDialog extends StatefulWidget {
-  const _AddApartmentDialog();
+  const _AddApartmentDialog({this.draft});
+
+  /// A `scraped_listings` row with status `draft` to continue editing.
+  final Map<String, dynamic>? draft;
 
   @override
   State<_AddApartmentDialog> createState() => _AddApartmentDialogState();
@@ -1132,7 +1157,46 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
   bool processingThumbnail = false;
   bool processingGallery = false;
   bool saving = false;
+  bool savingDraft = false;
+  String? existingThumbnailUrl;
+  final List<String> existingGalleryUrls = [];
   String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = widget.draft;
+    if (draft == null) return;
+    final parsed = draft['parsed_data'] is Map
+        ? Map<String, dynamic>.from(draft['parsed_data'] as Map)
+        : const <String, dynamic>{};
+    String text(String key) => (draft[key] ?? parsed[key] ?? '').toString();
+    String price(Object? value) => value is num && value > 0
+        ? (value % 1 == 0 ? value.toInt().toString() : value.toString())
+        : '';
+    titleController.text = text('title');
+    priceMinController.text = price(draft['monthly_price_min']);
+    priceMaxController.text = price(draft['monthly_price_max']);
+    addressController.text = (parsed['address'] ?? '').toString();
+    phoneController.text = text('contact_phone');
+    sourceController.text = text('source_url');
+    mapController.text = text('map_url');
+    final draftCurrency = draft['currency'];
+    if (const ['LAK', 'THB', 'USD'].contains(draftCurrency)) {
+      currency = draftCurrency as String;
+    }
+    final draftType = draft['property_type'];
+    if (const ['room', 'apartment', 'house', 'condo'].contains(draftType)) {
+      propertyType = draftType as String;
+    }
+    province = draft['province'] as String?;
+    district = draft['district'] as String?;
+    village = draft['village'] as String?;
+    existingThumbnailUrl = draft['thumbnail_url'] as String?;
+    existingGalleryUrls.addAll(
+      List<String>.from(draft['gallery_urls'] as List? ?? const []),
+    );
+  }
 
   Future<void> _pickThumbnail() async {
     final selected = await picker.FilePicker.pickFile(
@@ -1190,7 +1254,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       exception is FormatException ? exception.message : exception.toString();
 
   Future<void> _pickGalleryImages() async {
-    final remaining = 4 - galleryImages.length;
+    final remaining = 4 - galleryImages.length - existingGalleryUrls.length;
     if (remaining <= 0) {
       setState(() => error = 'อัปโหลดรูปภายในได้ไม่เกิน 4 รูป');
       return;
@@ -1262,10 +1326,13 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
     return location;
   }
 
-  Future<void> _save() async {
-    if (!(formKey.currentState?.validate() ?? false)) return;
+  /// Drafts skip validation so incomplete details can be saved and finished
+  /// later; publishing requires the full form to be valid.
+  Future<void> _save({required bool publish}) async {
+    if (publish && !(formKey.currentState?.validate() ?? false)) return;
     setState(() {
       saving = true;
+      savingDraft = !publish;
       error = null;
     });
     try {
@@ -1280,20 +1347,28 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       var mapLocation = GoogleMapsLocation.tryParse(mapController.text);
       if (mapLocation != null &&
           (mapLocation.latitude == null || mapLocation.longitude == null)) {
-        mapLocation = await _resolveMapLink(mapLocation.url);
+        try {
+          mapLocation = await _resolveMapLink(mapLocation.url);
+        } on FormatException {
+          // A draft keeps the link as typed so it can be fixed before publishing.
+          if (publish) rethrow;
+        }
       }
-      String? thumbnailUrl;
-      if (thumbnail != null) {
-        thumbnailUrl = await repository.uploadThumbnail(
-          bytes: thumbnail!.bytes,
-          fileName: thumbnail!.fileName,
-        );
-      }
-      final galleryUrls = await repository.uploadGalleryImages(
-        galleryImages
-            .map((file) => (bytes: file.bytes, fileName: file.fileName))
-            .toList(),
-      );
+      final mapText = mapController.text.trim();
+      final thumbnailUrl = thumbnail != null
+          ? await repository.uploadThumbnail(
+              bytes: thumbnail!.bytes,
+              fileName: thumbnail!.fileName,
+            )
+          : existingThumbnailUrl;
+      final galleryUrls = [
+        ...existingGalleryUrls,
+        ...await repository.uploadGalleryImages(
+          galleryImages
+              .map((file) => (bytes: file.bytes, fileName: file.fileName))
+              .toList(),
+        ),
+      ];
       final parsed = <String, dynamic>{
         'title': titleController.text.trim(),
         'description': addressController.text.trim().isEmpty
@@ -1326,25 +1401,56 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
         'manual_entry': true,
         'thumbnail_url': thumbnailUrl,
         'gallery_urls': galleryUrls,
-        'map_url': mapLocation?.url,
+        'map_url': mapLocation?.url ?? (mapText.isEmpty ? null : mapText),
         'latitude': mapLocation?.latitude,
         'longitude': mapLocation?.longitude,
       };
-      await repository.saveDraft(
-        rawText: [
-          titleController.text.trim(),
-          addressController.text.trim(),
-        ].where((value) => value.isNotEmpty).join(' — '),
-        sourceUrl: sourceController.text,
-        parsedData: parsed,
-      );
-      if (mounted) Navigator.pop(context, true);
+      final rawText = [
+        titleController.text.trim(),
+        addressController.text.trim(),
+      ].where((value) => value.isNotEmpty).join(' — ');
+      final status = publish ? 'approved' : 'draft';
+      final draftId = widget.draft?['id']?.toString();
+      if (draftId != null) {
+        await repository.updateListing(
+          id: draftId,
+          rawText: rawText,
+          sourceUrl: sourceController.text,
+          parsedData: parsed,
+          status: status,
+        );
+      } else {
+        await repository.saveDraft(
+          rawText: rawText,
+          sourceUrl: sourceController.text,
+          parsedData: parsed,
+          status: status,
+        );
+      }
+      if (mounted) {
+        Navigator.pop(
+          context,
+          publish ? _ListingSaveResult.published : _ListingSaveResult.draft,
+        );
+      }
     } on FormatException catch (exception) {
       if (mounted) setState(() => error = exception.message);
+    } on PostgrestException catch (exception) {
+      if (!mounted) return;
+      setState(
+        () => error = exception.code == '23514' && !publish
+            ? 'ฐานข้อมูลยังไม่รองรับแบบร่าง กรุณารัน supabase/add_listing_drafts.sql ใน Supabase SQL Editor ก่อน'
+            : exception.message,
+      );
     } catch (exception) {
       if (mounted) setState(() => error = exception.toString());
     } finally {
-      if (mounted) setState(() => saving = false);
+      if (mounted) {
+        setState(() {
+          saving = false;
+          savingDraft = false;
+        });
+      }
     }
   }
 
@@ -1357,7 +1463,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
         ? const <String>[]
         : store.data[province]?[district] ?? const <String>[];
     return AlertDialog(
-      title: const Text('เพิ่มที่พัก'),
+      title: Text(widget.draft == null ? 'เพิ่มที่พัก' : 'แก้ไขแบบร่าง'),
       content: SizedBox(
         width: 680,
         child: Form(
@@ -1386,6 +1492,16 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                               Text('กำลังบีบอัดรูป...'),
                             ],
                           )
+                        : thumbnail == null && existingThumbnailUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Image.network(
+                              existingThumbnailUrl!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) =>
+                                  const Icon(Icons.broken_image_outlined),
+                            ),
+                          )
                         : thumbnail == null
                         ? Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -1413,6 +1529,17 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                           ),
                   ),
                 ),
+                if (thumbnail == null && existingThumbnailUrl != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: saving
+                          ? null
+                          : () => setState(() => existingThumbnailUrl = null),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('ลบรูป'),
+                    ),
+                  ),
                 if (thumbnail != null)
                   Wrap(
                     alignment: WrapAlignment.end,
@@ -1454,67 +1581,103 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                   label: Text(
                     processingGallery
                         ? 'กำลังบีบอัดรูป...'
-                        : 'เพิ่มรูปภายในห้อง (${galleryImages.length}/4)',
+                        : 'เพิ่มรูปภายในห้อง (${existingGalleryUrls.length + galleryImages.length}/4)',
                   ),
                 ),
-                if (galleryImages.isNotEmpty) ...[
+                if (existingGalleryUrls.isNotEmpty ||
+                    galleryImages.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: List.generate(galleryImages.length, (index) {
-                      final file = galleryImages[index];
-                      return Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.memory(
-                              file.bytes,
-                              width: 118,
-                              height: 86,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          Positioned(
-                            top: 3,
-                            right: 3,
-                            child: IconButton.filled(
-                              visualDensity: VisualDensity.compact,
-                              tooltip: 'ลบรูป',
-                              onPressed: saving
-                                  ? null
-                                  : () => setState(
-                                      () => galleryImages.removeAt(index),
-                                    ),
-                              icon: const Icon(Icons.close, size: 16),
-                            ),
-                          ),
-                          Positioned(
-                            left: 5,
-                            bottom: 4,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: context.colors.shadow.withAlpha(0x8A),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 2,
+                    children: [
+                      for (final url in existingGalleryUrls)
+                        Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                url,
+                                width: 118,
+                                height: 86,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const SizedBox(
+                                  width: 118,
+                                  height: 86,
+                                  child: Icon(Icons.broken_image_outlined),
                                 ),
-                                child: Text(
-                                  '${(file.bytes.lengthInBytes / 1024).ceil()} KB',
-                                  style: TextStyle(
-                                    color: context.colors.onPrimary,
-                                    fontSize: 11,
+                              ),
+                            ),
+                            Positioned(
+                              top: 3,
+                              right: 3,
+                              child: IconButton.filled(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'ลบรูป',
+                                onPressed: saving
+                                    ? null
+                                    : () => setState(
+                                        () => existingGalleryUrls.remove(url),
+                                      ),
+                                icon: const Icon(Icons.close, size: 16),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ...List.generate(galleryImages.length, (index) {
+                        final file = galleryImages[index];
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.memory(
+                                file.bytes,
+                                width: 118,
+                                height: 86,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Positioned(
+                              top: 3,
+                              right: 3,
+                              child: IconButton.filled(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'ลบรูป',
+                                onPressed: saving
+                                    ? null
+                                    : () => setState(
+                                        () => galleryImages.removeAt(index),
+                                      ),
+                                icon: const Icon(Icons.close, size: 16),
+                              ),
+                            ),
+                            Positioned(
+                              left: 5,
+                              bottom: 4,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: context.colors.shadow.withAlpha(0x8A),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  child: Text(
+                                    '${(file.bytes.lengthInBytes / 1024).ceil()} KB',
+                                    style: TextStyle(
+                                      color: context.colors.onPrimary,
+                                      fontSize: 11,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    }),
+                          ],
+                        );
+                      }),
+                    ],
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -1700,18 +1863,32 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: saving ? null : () => Navigator.pop(context, false),
+          onPressed: saving ? null : () => Navigator.pop(context),
           child: const Text('ยกเลิก'),
         ),
+        OutlinedButton.icon(
+          onPressed: saving ? null : () => _save(publish: false),
+          icon: saving && savingDraft
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_outlined),
+          label: Text(
+            saving && savingDraft ? 'กำลังบันทึก...' : 'บันทึกแบบร่าง',
+          ),
+        ),
         FilledButton.icon(
-          onPressed: saving ? null : _save,
-          icon: saving
+          onPressed: saving ? null : () => _save(publish: true),
+          icon: saving && !savingDraft
               ? const SizedBox.square(
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.publish_outlined),
-          label: Text(saving ? 'กำลังบันทึก...' : 'บันทึกและเผยแพร่'),
+          label: Text(
+            saving && !savingDraft ? 'กำลังบันทึก...' : 'บันทึกและเผยแพร่',
+          ),
         ),
       ],
     );

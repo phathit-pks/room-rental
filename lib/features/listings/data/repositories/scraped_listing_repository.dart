@@ -47,6 +47,38 @@ class ScrapedListingRepository {
     return row['id'] as String;
   }
 
+  Future<void> updateListing({
+    required String id,
+    required String rawText,
+    required Map<String, dynamic> parsedData,
+    required String status,
+    String? sourceUrl,
+  }) async {
+    final client = SupabaseConfig.client;
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      throw StateError('กรุณาเข้าสู่ระบบ Admin อีกครั้ง');
+    }
+    final row = _databaseRow(
+      userId: user.id,
+      rawText: rawText,
+      sourceUrl: sourceUrl,
+      parsedData: parsedData,
+      status: status,
+    )..remove('created_by');
+    final updated = await client
+        .from('scraped_listings')
+        .update({
+          ...row,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', id)
+        .select('id');
+    if ((updated as List).isEmpty) {
+      throw StateError('ไม่พบประกาศนี้ หรือไม่มีสิทธิ์แก้ไข');
+    }
+  }
+
   Future<int> saveManyDrafts(List<Map<String, dynamic>> items) async {
     final client = SupabaseConfig.client;
     final user = client?.auth.currentUser;
