@@ -163,36 +163,32 @@ class SupabaseListingRepository implements ListingRepository {
     ]);
     final nearby = results[0] as List<RentalListing>;
     final latest = (results[1] as ListingPage).items;
-    final nearbyById = {for (final item in nearby) item.id: item};
-    final recommendations = <RentalListing>[];
-    if (latest.isNotEmpty) {
-      final newest = latest.first;
-      recommendations.add(nearbyById.remove(newest.id) ?? newest);
+    final byId = {for (final item in latest) item.id: item};
+    for (final item in nearby) {
+      byId[item.id] = item;
     }
-    recommendations.addAll(nearbyById.values);
-    if (recommendations.length < 9) {
-      for (final item in latest.skip(1)) {
-        if (recommendations.any((existing) => existing.id == item.id)) continue;
-        recommendations.add(item);
-        if (recommendations.length == 9) break;
-      }
-    }
-    final items = recommendations.take(9).map((item) {
-      // Listings outside the radius search arrive without a distance.
-      if (item.distanceMeters != null ||
-          item.latitude == null ||
-          item.longitude == null) {
-        return item;
-      }
-      return item.withDistanceMeters(
-        distanceBetweenMeters(
-          latitude,
-          longitude,
-          item.latitude!,
-          item.longitude!,
-        ),
-      );
-    }).toList();
+    final sorted =
+        byId.values.map((item) {
+          // Listings outside the radius search arrive without a distance.
+          if (item.distanceMeters != null ||
+              item.latitude == null ||
+              item.longitude == null) {
+            return item;
+          }
+          return item.withDistanceMeters(
+            distanceBetweenMeters(
+              latitude,
+              longitude,
+              item.latitude!,
+              item.longitude!,
+            ),
+          );
+        }).toList()..sort(
+          (a, b) => (a.distanceMeters ?? double.infinity).compareTo(
+            b.distanceMeters ?? double.infinity,
+          ),
+        );
+    final items = sorted.take(9).toList();
     return ListingPage(
       items: items,
       page: 1,
