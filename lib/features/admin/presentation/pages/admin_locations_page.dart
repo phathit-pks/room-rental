@@ -5,11 +5,13 @@ import 'package:file_picker/file_picker.dart' as picker;
 import 'package:flutter/material.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/thumbnail_compressor.dart';
+import 'package:room_rental/core/utils/thumbnail_cropper.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
 import 'package:room_rental/features/listings/data/repositories/scraped_listing_repository.dart';
 import 'package:room_rental/features/listings/data/services/rental_post_parser.dart';
 import 'package:room_rental/features/admin/presentation/widgets/admin_advertisements_panel.dart';
 import 'package:room_rental/features/admin/presentation/widgets/pending_listings_panel.dart';
+import 'package:room_rental/features/admin/presentation/widgets/thumbnail_crop_dialog.dart';
 import 'package:room_rental/features/locations/data/location_store.dart';
 import 'package:room_rental/shared/widgets/searchable_select_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -1124,6 +1126,7 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
   String? district;
   String? village;
   CompressedThumbnail? thumbnail;
+  ThumbnailCropSource? thumbnailSource;
   final List<CompressedThumbnail> galleryImages = [];
   bool thumbnailWasCompressed = false;
   bool processingThumbnail = false;
@@ -1140,22 +1143,51 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
       processingThumbnail = true;
       error = null;
     });
+    ThumbnailCropSource source;
     try {
-      final compressed = await ThumbnailCompressor.compress(
+      source = ThumbnailCropSource.decode(
         await selected.readAsBytes(),
         selected.name,
+      );
+    } catch (exception) {
+      if (mounted) setState(() => error = _errorMessage(exception));
+      return;
+    } finally {
+      if (mounted) setState(() => processingThumbnail = false);
+    }
+    await _cropThumbnail(source);
+  }
+
+  Future<void> _cropThumbnail(ThumbnailCropSource source) async {
+    final area = await showDialog<Rect>(
+      context: context,
+      builder: (_) => ThumbnailCropDialog(source: source),
+    );
+    if (area == null || !mounted) return;
+    setState(() {
+      processingThumbnail = true;
+      error = null;
+    });
+    try {
+      final compressed = await ThumbnailCompressor.compress(
+        source.crop(area),
+        source.fileName,
       );
       if (!mounted) return;
       setState(() {
         thumbnail = compressed;
+        thumbnailSource = source;
         thumbnailWasCompressed = compressed.wasCompressed;
       });
     } catch (exception) {
-      if (mounted) setState(() => error = exception.toString());
+      if (mounted) setState(() => error = _errorMessage(exception));
     } finally {
       if (mounted) setState(() => processingThumbnail = false);
     }
   }
+
+  String _errorMessage(Object exception) =>
+      exception is FormatException ? exception.message : exception.toString();
 
   Future<void> _pickGalleryImages() async {
     final remaining = 4 - galleryImages.length;
@@ -1376,24 +1408,37 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
                             borderRadius: BorderRadius.circular(15),
                             child: Image.memory(
                               thumbnail!.bytes,
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain,
                             ),
                           ),
                   ),
                 ),
                 if (thumbnail != null)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: saving
-                          ? null
-                          : () => setState(() => thumbnail = null),
-                      icon: const Icon(Icons.delete_outline),
-                      label: Text(
-                        '${thumbnailWasCompressed ? 'บีบอัดแล้ว • ' : ''}'
-                        '${(thumbnail!.bytes.lengthInBytes / 1024).ceil()} KB • ลบรูป',
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    children: [
+                      if (thumbnailSource != null)
+                        TextButton.icon(
+                          onPressed: saving || processingThumbnail
+                              ? null
+                              : () => _cropThumbnail(thumbnailSource!),
+                          icon: const Icon(Icons.crop),
+                          label: const Text('ปรับตำแหน่งรูป'),
+                        ),
+                      TextButton.icon(
+                        onPressed: saving
+                            ? null
+                            : () => setState(() {
+                                thumbnail = null;
+                                thumbnailSource = null;
+                              }),
+                        icon: const Icon(Icons.delete_outline),
+                        label: Text(
+                          '${thumbnailWasCompressed ? 'บีบอัดแล้ว • ' : ''}'
+                          '${(thumbnail!.bytes.lengthInBytes / 1024).ceil()} KB • ลบรูป',
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
