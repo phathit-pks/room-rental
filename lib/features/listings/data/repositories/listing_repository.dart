@@ -1,4 +1,5 @@
 import 'package:room_rental/core/config/supabase_config.dart';
+import 'package:room_rental/core/utils/geo_distance.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
 
@@ -176,11 +177,27 @@ class SupabaseListingRepository implements ListingRepository {
         if (recommendations.length == 9) break;
       }
     }
+    final items = recommendations.take(9).map((item) {
+      // Listings outside the radius search arrive without a distance.
+      if (item.distanceMeters != null ||
+          item.latitude == null ||
+          item.longitude == null) {
+        return item;
+      }
+      return item.withDistanceMeters(
+        distanceBetweenMeters(
+          latitude,
+          longitude,
+          item.latitude!,
+          item.longitude!,
+        ),
+      );
+    }).toList();
     return ListingPage(
-      items: recommendations.take(9).toList(),
+      items: items,
       page: 1,
       pageSize: 9,
-      totalItems: recommendations.take(9).length,
+      totalItems: items.length,
     );
   }
 

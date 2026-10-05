@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/theme/theme_store.dart';
+import 'package:room_rental/core/utils/geo_distance.dart';
 import 'package:room_rental/core/utils/relative_date_formatter.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/auth/presentation/widgets/client_auth_button.dart';
@@ -132,7 +133,7 @@ class _HomePageState extends State<HomePage> {
               district: district,
               village: village,
             ) &&
-            _distanceBetweenMeters(
+            distanceBetweenMeters(
                   position.latitude,
                   position.longitude,
                   cache.latitude,
@@ -210,7 +211,7 @@ class _HomePageState extends State<HomePage> {
             .where((item) => item.latitude != null && item.longitude != null)
             .map(
               (item) => item.withDistanceMeters(
-                _distanceBetweenMeters(
+                distanceBetweenMeters(
                   latitude,
                   longitude,
                   item.latitude!,
@@ -230,25 +231,6 @@ class _HomePageState extends State<HomePage> {
       totalItems: items.length > 9 ? 9 : items.length,
     );
   }
-
-  double _distanceBetweenMeters(
-    double firstLatitude,
-    double firstLongitude,
-    double secondLatitude,
-    double secondLongitude,
-  ) {
-    final latitudeDelta = _toRadians(secondLatitude - firstLatitude);
-    final longitudeDelta = _toRadians(secondLongitude - firstLongitude);
-    final a =
-        math.sin(latitudeDelta / 2) * math.sin(latitudeDelta / 2) +
-        math.cos(_toRadians(firstLatitude)) *
-            math.cos(_toRadians(secondLatitude)) *
-            math.sin(longitudeDelta / 2) *
-            math.sin(longitudeDelta / 2);
-    return 12742000 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-  }
-
-  double _toRadians(double degrees) => degrees * math.pi / 180;
 
   void _clearSearch() {
     setState(() {
