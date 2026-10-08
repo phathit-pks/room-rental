@@ -20,6 +20,7 @@ import 'package:room_rental/features/map_search/presentation/pages/map_search_pa
 import 'package:room_rental/features/home/presentation/pages/nearby_search_cache.dart';
 import 'package:room_rental/shared/widgets/app_logo.dart';
 import 'package:room_rental/shared/widgets/day_night_toggle.dart';
+import 'package:room_rental/shared/widgets/notice_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomePage extends StatefulWidget {
@@ -947,139 +948,6 @@ class _PromotionBanner extends StatelessWidget {
   }
 }
 
-Future<void> _showNoticeDialog(
-  BuildContext context, {
-  required IconData icon,
-  required String title,
-  required String message,
-}) {
-  return showGeneralDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: context.colors.shadow.withAlpha(0x66),
-    transitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (context, _, _) =>
-        _NoticeDialog(icon: icon, title: title, message: message),
-    transitionBuilder: (context, animation, _, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeIn,
-      );
-      return FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.9, end: 1).animate(curved),
-          child: child,
-        ),
-      );
-    },
-  );
-}
-
-class _NoticeDialog extends StatelessWidget {
-  const _NoticeDialog({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: Material(
-            color: context.colors.surface,
-            borderRadius: BorderRadius.circular(24),
-            elevation: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: context.colors.shadow.withAlpha(0x29),
-                    blurRadius: 40,
-                    offset: const Offset(0, 20),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          context.colors.primaryContainer,
-                          context.colors.primaryContainerStrong,
-                        ],
-                      ),
-                    ),
-                    child: Icon(icon, size: 36, color: context.colors.primary),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: context.colors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.5,
-                      color: context.colors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: context.colors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      child: const Text('ตกลง'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SearchBox extends StatefulWidget {
   const _SearchBox({required this.onSearch, required this.onClear});
 
@@ -1143,7 +1011,7 @@ class _SearchBoxState extends State<_SearchBox> {
     ].whereType<String>().join(' • ');
     if (selections.isEmpty) {
       ScaffoldMessenger.of(context).clearSnackBars();
-      await _showNoticeDialog(
+      await showNoticeDialog(
         context,
         icon: Icons.location_on_rounded,
         title: 'เลือกพื้นที่ก่อนค้นหา',
@@ -1172,7 +1040,7 @@ class _SearchBoxState extends State<_SearchBox> {
     });
     widget.onClear();
     ScaffoldMessenger.of(context).clearSnackBars();
-    _showNoticeDialog(
+    showNoticeDialog(
       context,
       icon: Icons.filter_alt_off_rounded,
       title: 'ล้างตัวกรองแล้ว',

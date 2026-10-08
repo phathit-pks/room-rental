@@ -8,6 +8,7 @@ import 'package:room_rental/features/auth/presentation/widgets/client_auth_butto
 import 'package:room_rental/features/listings/data/repositories/scraped_listing_repository.dart';
 import 'package:room_rental/features/locations/data/location_store.dart';
 import 'package:room_rental/shared/widgets/app_logo.dart';
+import 'package:room_rental/shared/widgets/notice_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ContactPage extends StatefulWidget {
@@ -121,7 +122,13 @@ class _ContactPageState extends State<ContactPage> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
-      _scrollToFirstError();
+      await showNoticeDialog(
+        context,
+        icon: Icons.error_outline_rounded,
+        title: 'กรอกข้อมูลไม่ครบ',
+        message: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วนก่อนส่ง',
+      );
+      if (mounted) _scrollToFirstError();
       return;
     }
     final user = SupabaseConfig.client?.auth.currentUser;
