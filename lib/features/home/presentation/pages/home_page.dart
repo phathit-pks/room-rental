@@ -2178,7 +2178,7 @@ class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
-                  height: 520,
+                  height: 210,
                   child: FutureBuilder<List<RentalListing>>(
                     future: _future,
                     builder: (context, snapshot) {
@@ -2187,9 +2187,11 @@ class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
                       return ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: rooms.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 16),
-                        itemBuilder: (_, index) =>
-                            SizedBox(width: 230, child: _RoomCard(room: rooms[index])),
+                        separatorBuilder: (_, _) => const SizedBox(width: 14),
+                        itemBuilder: (_, index) => SizedBox(
+                          width: 170,
+                          child: _RecentlyViewedCard(room: rooms[index]),
+                        ),
                       );
                     },
                   ),
@@ -2199,6 +2201,99 @@ class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
           ),
         );
       },
+    );
+  }
+}
+
+class _RecentlyViewedCard extends StatelessWidget {
+  const _RecentlyViewedCard({required this.room});
+
+  final RentalListing room;
+
+  void _openDetail(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => ListingDetailPage(room: room)),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: context.colors.border),
+      ),
+      child: InkWell(
+        onTap: () => _openDetail(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: ColoredBox(
+                color: context.colors.primaryContainer,
+                child: room.imageUrl.isEmpty
+                    ? Icon(
+                        Icons.apartment_outlined,
+                        size: 44,
+                        color: context.colors.primary.withAlpha(0x55),
+                      )
+                    : Image.network(
+                        room.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Icon(
+                          Icons.broken_image_outlined,
+                          size: 36,
+                          color: context.colors.primary.withAlpha(0x55),
+                        ),
+                      ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    room.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 13,
+                        color: context.colors.textMuted,
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          room.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.colors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
