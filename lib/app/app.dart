@@ -4,7 +4,6 @@ import 'package:room_rental/core/theme/theme_store.dart';
 import 'package:room_rental/features/admin/presentation/pages/admin_locations_page.dart';
 import 'package:room_rental/features/contact/presentation/pages/contact_page.dart';
 import 'package:room_rental/features/home/presentation/pages/home_page.dart';
-import 'package:room_rental/features/privacy/presentation/widgets/privacy_consent_gate.dart';
 
 class RoomRentalApp extends StatelessWidget {
   const RoomRentalApp({super.key});
@@ -21,7 +20,7 @@ class RoomRentalApp extends StatelessWidget {
           darkTheme: AppTheme.dark,
           themeMode: ThemeStore.instance.mode,
           routes: {
-            '/': (_) => const PrivacyConsentGate(child: HomePage()),
+            '/': (_) => const HomePage(),
             '/admin': (_) => const AdminLocationsPage(),
             '/contact': (_) => const ContactPage(),
           },
