@@ -34,7 +34,9 @@ class _ListingRatingWidgetState extends State<ListingRatingWidget> {
     try {
       await _repository.rate(widget.listingId, rating);
       if (mounted) {
-        setState(() => _summary = _repository.fetchSummary(widget.listingId));
+        setState(() {
+          _summary = _repository.fetchSummary(widget.listingId);
+        });
       }
     } catch (error) {
       if (mounted) {
