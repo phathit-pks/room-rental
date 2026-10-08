@@ -19,6 +19,12 @@ class ContactPage extends StatefulWidget {
 
 class _ContactPageState extends State<ContactPage> {
   final _formKey = GlobalKey<FormState>();
+  final _titleFieldKey = GlobalKey<FormFieldState<String>>();
+  final _priceMinFieldKey = GlobalKey<FormFieldState<String>>();
+  final _priceMaxFieldKey = GlobalKey<FormFieldState<String>>();
+  final _provinceFieldKey = GlobalKey<FormFieldState<String>>();
+  final _districtFieldKey = GlobalKey<FormFieldState<String>>();
+  final _mapUrlFieldKey = GlobalKey<FormFieldState<String>>();
   final _repository = const ScrapedListingRepository();
   final _title = TextEditingController();
   final _priceMin = TextEditingController();
@@ -114,7 +120,10 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      _scrollToFirstError();
+      return;
+    }
     final user = SupabaseConfig.client?.auth.currentUser;
     if (user == null) {
       await showClientSignInDialog(context);
@@ -212,6 +221,28 @@ class _ContactPageState extends State<ContactPage> {
       if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _scrollToFirstError() {
+    for (final key in [
+      _titleFieldKey,
+      _priceMinFieldKey,
+      _priceMaxFieldKey,
+      _provinceFieldKey,
+      _districtFieldKey,
+      _mapUrlFieldKey,
+    ]) {
+      final fieldContext = key.currentContext;
+      if (key.currentState?.hasError == true && fieldContext != null) {
+        Scrollable.ensureVisible(
+          fieldContext,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+          alignment: 0.2,
+        );
+        break;
+      }
     }
   }
 
@@ -450,6 +481,7 @@ class _ContactPageState extends State<ContactPage> {
           ),
           const SizedBox(height: 12),
           TextFormField(
+            key: _titleFieldKey,
             controller: _title,
             decoration: const InputDecoration(labelText: 'ชื่อที่พัก *'),
             validator: _required,
@@ -459,6 +491,7 @@ class _ContactPageState extends State<ContactPage> {
             children: [
               Expanded(
                 child: TextFormField(
+                  key: _priceMinFieldKey,
                   controller: _priceMin,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
@@ -470,6 +503,7 @@ class _ContactPageState extends State<ContactPage> {
               const SizedBox(width: 12),
               Expanded(
                 child: TextFormField(
+                  key: _priceMaxFieldKey,
                   controller: _priceMax,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
@@ -496,6 +530,7 @@ class _ContactPageState extends State<ContactPage> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
+            key: _provinceFieldKey,
             initialValue: _province,
             decoration: const InputDecoration(labelText: 'แขวง *'),
             items: provinces
@@ -513,6 +548,7 @@ class _ContactPageState extends State<ContactPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  key: _districtFieldKey,
                   initialValue: _district,
                   decoration: const InputDecoration(labelText: 'เมือง *'),
                   items: districts
@@ -567,6 +603,7 @@ class _ContactPageState extends State<ContactPage> {
           ),
           const SizedBox(height: 12),
           TextFormField(
+            key: _mapUrlFieldKey,
             controller: _mapUrl,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
