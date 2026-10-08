@@ -2178,7 +2178,7 @@ class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
-                  height: 300,
+                  height: 520,
                   child: FutureBuilder<List<RentalListing>>(
                     future: _future,
                     builder: (context, snapshot) {
