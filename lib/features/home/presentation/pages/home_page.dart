@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
@@ -10,6 +11,7 @@ import 'package:room_rental/core/utils/relative_date_formatter.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/auth/presentation/widgets/client_auth_button.dart';
 import 'package:room_rental/features/favorites/data/favorite_store.dart';
+import 'package:room_rental/features/listings/data/recently_viewed_store.dart';
 import 'package:room_rental/features/listings/data/repositories/listing_repository.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
 import 'package:room_rental/features/listings/presentation/pages/listing_detail_page.dart';
@@ -292,6 +294,9 @@ class _HomePageState extends State<HomePage> {
                   onPageChanged: _changePage,
                   onSearchPressed: _scrollToSearch,
                 ),
+              ),
+              SliverToBoxAdapter(
+                child: _RecentlyViewedSection(repository: _repository),
               ),
               const SliverToBoxAdapter(child: _HowItWorksSection()),
               const SliverToBoxAdapter(child: _CallToAction()),
@@ -2125,6 +2130,76 @@ class _RoomCard extends StatelessWidget {
     return kilometers < 10
         ? '${kilometers.toStringAsFixed(1)} กม.'
         : '${kilometers.round()} กม.';
+  }
+}
+
+class _RecentlyViewedSection extends StatefulWidget {
+  const _RecentlyViewedSection({required this.repository});
+
+  final SupabaseListingRepository repository;
+
+  @override
+  State<_RecentlyViewedSection> createState() =>
+      _RecentlyViewedSectionState();
+}
+
+class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
+  List<String> _fetchedIds = const [];
+  Future<List<RentalListing>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    RecentlyViewedStore.instance.load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: RecentlyViewedStore.instance,
+      builder: (context, _) {
+        final ids = RecentlyViewedStore.instance.ids;
+        if (ids.isEmpty) return const SizedBox.shrink();
+        if (!listEquals(ids, _fetchedIds)) {
+          _fetchedIds = ids;
+          _future = widget.repository.getByIds(ids);
+        }
+        return _PageWidth(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 48),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ดูล่าสุด',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 300,
+                  child: FutureBuilder<List<RentalListing>>(
+                    future: _future,
+                    builder: (context, snapshot) {
+                      final rooms = snapshot.data ?? const [];
+                      if (rooms.isEmpty) return const SizedBox.shrink();
+                      return ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: rooms.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 16),
+                        itemBuilder: (_, index) =>
+                            SizedBox(width: 230, child: _RoomCard(room: rooms[index])),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

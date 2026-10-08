@@ -149,6 +149,26 @@ class SupabaseListingRepository implements ListingRepository {
     );
   }
 
+  Future<List<RentalListing>> getByIds(List<String> ids) async {
+    final client = SupabaseConfig.client;
+    if (client == null || ids.isEmpty) return const [];
+    final response = await client
+        .from('scraped_listings')
+        .select(
+          'id,title,monthly_price,monthly_price_min,monthly_price_max,'
+          'currency,province,district,village,source_url,contact_phone,'
+          'property_type,thumbnail_url,map_url,latitude,longitude,'
+          'parsed_data,gallery_urls',
+        )
+        .eq('status', 'approved')
+        .inFilter('id', ids);
+    final byId = {
+      for (final row in List<Map<String, dynamic>>.from(response))
+        row['id'] as String: _fromRow(row),
+    };
+    return ids.map((id) => byId[id]).whereType<RentalListing>().toList();
+  }
+
   Future<ListingPage> recommendNearby({
     required double latitude,
     required double longitude,

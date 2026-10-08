@@ -3,7 +3,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
+import 'package:room_rental/features/listings/data/recently_viewed_store.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
+import 'package:room_rental/features/listings/presentation/widgets/report_listing_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ListingDetailPage extends StatelessWidget {
@@ -17,8 +19,21 @@ class ListingDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => RecentlyViewedStore.instance.recordView(room.id),
+    );
     return Scaffold(
-      appBar: AppBar(title: Text(room.title)),
+      appBar: AppBar(
+        title: Text(room.title),
+        actions: [
+          IconButton(
+            tooltip: 'รายงานประกาศนี้',
+            onPressed: () =>
+                showReportListingDialog(context, listingId: room.id),
+            icon: const Icon(Icons.flag_outlined),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Center(
           child: ConstrainedBox(
