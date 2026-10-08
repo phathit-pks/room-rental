@@ -5,6 +5,7 @@ import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/listings/data/recently_viewed_store.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
+import 'package:room_rental/features/listings/presentation/widgets/listing_rating_widget.dart';
 import 'package:room_rental/features/listings/presentation/widgets/report_listing_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -219,6 +220,8 @@ class ListingDetailPage extends StatelessWidget {
           context,
         ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
       ),
+      const SizedBox(height: 8),
+      ListingRatingWidget(listingId: room.id),
       const SizedBox(height: 8),
       Text(
         _propertyTypeLabel(room.propertyType),
