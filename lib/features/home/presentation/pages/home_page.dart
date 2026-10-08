@@ -53,10 +53,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<ListingPage> _loadRecommendations() async {
     try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
+      final permission = await _ensureLocationPermission();
       if (permission != LocationPermission.denied &&
           permission != LocationPermission.deniedForever) {
         final position = await Geolocator.getCurrentPosition(
@@ -114,10 +111,7 @@ class _HomePageState extends State<HomePage> {
     String? village,
   }) async {
     try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
+      final permission = await _ensureLocationPermission();
       if (permission != LocationPermission.denied &&
           permission != LocationPermission.deniedForever) {
         final position = await Geolocator.getCurrentPosition(
@@ -246,6 +240,17 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<LocationPermission> _ensureLocationPermission() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      if (!mounted) return permission;
+      final proceed = await _confirmLocationPriming(context);
+      if (!proceed) return permission;
+      permission = await Geolocator.requestPermission();
+    }
+    return permission;
+  }
+
   void _changePage(int page) {
     setState(() {
       _listings = _repository.searchPage(
@@ -303,6 +308,145 @@ class _HomePageState extends State<HomePage> {
               const SliverToBoxAdapter(child: _CallToAction()),
               const SliverToBoxAdapter(child: _Footer()),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<bool> _confirmLocationPriming(BuildContext context) async {
+  final result = await showGeneralDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: context.colors.shadow.withAlpha(0x66),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (context, _, _) => const _LocationPrimingDialog(),
+    transitionBuilder: (context, animation, _, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeIn,
+      );
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+  return result ?? false;
+}
+
+class _LocationPrimingDialog extends StatelessWidget {
+  const _LocationPrimingDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Material(
+            color: context.colors.surface,
+            borderRadius: BorderRadius.circular(24),
+            elevation: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: context.colors.shadow.withAlpha(0x29),
+                    blurRadius: 40,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          context.colors.primaryContainer,
+                          context.colors.primaryContainerStrong,
+                        ],
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.my_location_rounded,
+                      size: 36,
+                      color: context.colors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'ใช้ตำแหน่งของคุณไหม?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: context.colors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'เราจะขอตำแหน่งปัจจุบันของคุณ เพื่อแนะนำห้องที่อยู่ใกล้คุณที่สุด '
+                    'โดยใช้ชั่วคราวระหว่างค้นหาและไม่บันทึกพิกัดของคุณลงฐานข้อมูล',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.5,
+                      color: context.colors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: context.colors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: const Text('อนุญาตใช้ตำแหน่ง'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        'ไม่อนุญาต',
+                        style: TextStyle(color: context.colors.textMuted),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
