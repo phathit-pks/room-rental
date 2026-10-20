@@ -22,6 +22,11 @@ Use a release number, date, commit hash, or CI build number as the value.
 
 Do not put the `service_role` key in Flutter or any browser application.
 
+Since Supabase stopped auto-granting Data API access to new `public` tables
+(2026-10-30), every `create table` in this folder is followed by an explicit
+`grant` statement. Any new table you add needs the same treatment, or
+supabase-js/PostgREST/GraphQL will get a "permission denied" error for it.
+
 ## Gemini rental-post parser
 
 Create a Gemini API key in Google AI Studio, then keep it only as a Supabase

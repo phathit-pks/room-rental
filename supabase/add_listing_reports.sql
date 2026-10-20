@@ -12,6 +12,9 @@ create table if not exists public.listing_reports (
 
 alter table public.listing_reports enable row level security;
 
+grant select, insert, update, delete on public.listing_reports
+  to anon, authenticated, service_role;
+
 drop policy if exists "authenticated users create listing reports"
   on public.listing_reports;
 create policy "authenticated users create listing reports"

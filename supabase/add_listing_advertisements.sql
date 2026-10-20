@@ -14,6 +14,9 @@ create index if not exists listing_advertisements_schedule_idx
 
 alter table public.listing_advertisements enable row level security;
 
+grant select, insert, update, delete on public.listing_advertisements
+  to anon, authenticated, service_role;
+
 drop policy if exists "public reads active listing ads"
   on public.listing_advertisements;
 create policy "public reads active listing ads"

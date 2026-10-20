@@ -40,6 +40,9 @@ create index if not exists scraped_listings_status_created_idx
 
 alter table public.scraped_listings enable row level security;
 
+grant select, insert, update, delete on public.scraped_listings
+  to anon, authenticated, service_role;
+
 drop policy if exists "admins read scraped listings" on public.scraped_listings;
 create policy "admins read scraped listings"
   on public.scraped_listings for select

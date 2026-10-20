@@ -10,6 +10,9 @@ create table if not exists public.listing_ratings (
 
 alter table public.listing_ratings enable row level security;
 
+grant select, insert, update, delete on public.listing_ratings
+  to anon, authenticated, service_role;
+
 drop policy if exists "anyone reads listing ratings"
   on public.listing_ratings;
 create policy "anyone reads listing ratings"

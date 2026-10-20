@@ -11,6 +11,9 @@ create table if not exists public.contact_requests (
 
 alter table public.contact_requests enable row level security;
 
+grant select, insert, update, delete on public.contact_requests
+  to anon, authenticated, service_role;
+
 drop policy if exists "public creates contact requests"
   on public.contact_requests;
 create policy "public creates contact requests"

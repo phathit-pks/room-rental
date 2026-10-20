@@ -152,6 +152,22 @@ alter table public.property_amenities enable row level security;
 alter table public.favorites enable row level security;
 alter table public.advertisements enable row level security;
 
+-- Explicit Data API grants (Supabase stops auto-granting these for new
+-- tables from 2026-10-30 onward). This mirrors the access these tables
+-- already had; RLS policies below remain the real access control.
+grant select, insert, update, delete on
+  public.profiles,
+  public.provinces,
+  public.districts,
+  public.villages,
+  public.properties,
+  public.property_images,
+  public.amenities,
+  public.property_amenities,
+  public.favorites,
+  public.advertisements
+to anon, authenticated, service_role;
+
 create policy "public reads locations" on public.provinces for select using (active or public.is_admin());
 create policy "public reads districts" on public.districts for select using (active or public.is_admin());
 create policy "public reads villages" on public.villages for select using (active or public.is_admin());
