@@ -8,6 +8,7 @@ class SearchableSelectField extends FormField<String> {
     required String label,
     required List<String> items,
     required ValueChanged<String?>? onChanged,
+    IconData? icon,
     super.initialValue,
     super.validator,
   }) : super(
@@ -35,6 +36,7 @@ class SearchableSelectField extends FormField<String> {
                  labelText: label,
                  enabled: onChanged != null,
                  errorText: state.errorText,
+                 prefixIcon: icon == null ? null : Icon(icon),
                  suffixIcon: const Icon(Icons.arrow_drop_down),
                ),
                child: value == null

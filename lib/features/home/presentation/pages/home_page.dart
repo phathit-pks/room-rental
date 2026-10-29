@@ -21,6 +21,7 @@ import 'package:room_rental/features/home/presentation/pages/nearby_search_cache
 import 'package:room_rental/shared/widgets/app_logo.dart';
 import 'package:room_rental/shared/widgets/day_night_toggle.dart';
 import 'package:room_rental/shared/widgets/notice_dialog.dart';
+import 'package:room_rental/shared/widgets/searchable_select_field.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomePage extends StatefulWidget {
@@ -1215,9 +1216,10 @@ class _SearchBoxState extends State<_SearchBox> {
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 700;
               final filters = [
-                _LocationDropdown(
+                SearchableSelectField(
+                  key: const ValueKey('province'),
                   label: 'แขวง',
-                  value: _province,
+                  initialValue: _province,
                   items: _locations.keys.toList(),
                   icon: Icons.map_outlined,
                   onChanged: (value) => setState(() {
@@ -1226,9 +1228,10 @@ class _SearchBoxState extends State<_SearchBox> {
                     _village = null;
                   }),
                 ),
-                _LocationDropdown(
+                SearchableSelectField(
+                  key: const ValueKey('district'),
                   label: 'เมือง',
-                  value: _district,
+                  initialValue: _district,
                   items: _districts,
                   icon: Icons.location_city_outlined,
                   onChanged: _province == null
@@ -1238,9 +1241,10 @@ class _SearchBoxState extends State<_SearchBox> {
                           _village = null;
                         }),
                 ),
-                _LocationDropdown(
+                SearchableSelectField(
+                  key: const ValueKey('village'),
                   label: 'บ้าน',
-                  value: _village,
+                  initialValue: _village,
                   items: _villages,
                   icon: Icons.home_outlined,
                   onChanged: _district == null
@@ -1313,63 +1317,6 @@ class _SearchBoxState extends State<_SearchBox> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _LocationDropdown extends StatelessWidget {
-  const _LocationDropdown({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.icon,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String? value;
-  final List<String> items;
-  final IconData icon;
-  final ValueChanged<String?>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    // The label sits above the field: the theme's borderless outline would
-    // otherwise float it across the field's top edge.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: context.colors.textSecondary,
-            ),
-          ),
-        ),
-        DropdownButtonFormField<String>(
-          key: ValueKey('$label:$value'),
-          initialValue: value,
-          isExpanded: true,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: context.colors.primary),
-            fillColor: context.colors.surfaceMuted,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 14,
-            ),
-          ),
-          hint: Text('เลือก$label'),
-          items: items
-              .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ],
     );
   }
 }
