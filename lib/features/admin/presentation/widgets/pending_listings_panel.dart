@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
@@ -127,14 +128,9 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.fact_check_outlined),
-            SizedBox(width: 10),
-            Text('ตรวจสอบรายละเอียดประกาศ'),
-          ],
-        ),
+      builder: (dialogContext) => AppDialog(
+        icon: const Icon(Icons.fact_check_outlined),
+        title: const Text('ตรวจสอบรายละเอียดประกาศ'),
         content: SizedBox(
           width: 720,
           child: SingleChildScrollView(
@@ -442,10 +438,7 @@ class _DetailRow extends StatelessWidget {
         const SizedBox(width: 10),
         SizedBox(
           width: 125,
-          child: Text(
-            label,
-            style: TextStyle(color: context.colors.textMuted),
-          ),
+          child: Text(label, style: TextStyle(color: context.colors.textMuted)),
         ),
         Expanded(child: SelectableText(value.isEmpty ? '-' : value)),
       ],

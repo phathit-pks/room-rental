@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:room_rental/core/config/supabase_config.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/features/auth/presentation/widgets/client_auth_button.dart';
@@ -70,7 +71,9 @@ class _ReportListingDialogState extends State<ReportListingDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => AppDialog(
+    closeEnabled: !_submitting,
+    scrollable: true,
     icon: Icon(Icons.flag_outlined, color: context.colors.danger, size: 30),
     title: const Text('รายงานประกาศนี้'),
     content: SizedBox(width: 400, child: _submitted ? _success() : _form()),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:room_rental/core/theme/app_colors.dart';
@@ -127,7 +128,7 @@ class _AdminAdvertisementsPanelState extends State<AdminAdvertisementsPanel> {
   Future<void> _delete(Map<String, dynamic> ad) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppDialog(
         title: const Text('ลบโฆษณานี้?'),
         content: const Text('รายการห้องจะไม่ถูกลบ ลบเฉพาะกำหนดการโฆษณา'),
         actions: [
@@ -407,7 +408,7 @@ class _AdvertisementDialogState extends State<_AdvertisementDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => AppDialog(
     title: Text(
       widget.initialAdvertisement == null ? 'เพิ่มโฆษณา' : 'แก้ไขโฆษณา',
     ),
@@ -677,10 +678,7 @@ class _SelectedListingCard extends StatelessWidget {
                 '$location • $price',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: context.colors.textMuted,
-                ),
+                style: TextStyle(fontSize: 12, color: context.colors.textMuted),
               ),
             ],
           ),

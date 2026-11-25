@@ -271,7 +271,10 @@ class _ContactPageState extends State<ContactPage> {
           width: double.infinity,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [context.colors.primaryContainer, context.colors.background],
+              colors: [
+                context.colors.primaryContainer,
+                context.colors.background,
+              ],
             ),
           ),
           child: Center(
@@ -301,11 +304,7 @@ class _ContactPageState extends State<ContactPage> {
   Widget _signInRequired() => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(
-        Icons.lock_person_outlined,
-        size: 62,
-        color: context.colors.primary,
-      ),
+      Icon(Icons.lock_person_outlined, size: 62, color: context.colors.primary),
       const SizedBox(height: 18),
       const Text(
         'เข้าสู่ระบบก่อนลงประกาศ',

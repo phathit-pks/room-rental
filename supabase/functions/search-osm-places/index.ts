@@ -3,12 +3,17 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (request.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
 
   try {
     const authorization = request.headers.get("Authorization");
@@ -69,7 +74,10 @@ Deno.serve(async (request) => {
     );out center tags 80;`;
     const overpass = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST",
-      headers: { ...osmHeaders, "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        ...osmHeaders,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
       body: new URLSearchParams({ data: overpassQuery }),
       signal: AbortSignal.timeout(25_000),
     });
@@ -86,8 +94,11 @@ Deno.serve(async (request) => {
       if (seen.has(key)) return [];
       seen.add(key);
       const address = [
-        tags["addr:housenumber"], tags["addr:street"], tags["addr:village"],
-        tags["addr:district"], tags["addr:city"],
+        tags["addr:housenumber"],
+        tags["addr:street"],
+        tags["addr:village"],
+        tags["addr:district"],
+        tags["addr:city"],
       ].filter(Boolean).join(" ");
       return [{
         id: `${element.type}/${element.id}`,

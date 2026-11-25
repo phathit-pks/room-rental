@@ -11,6 +11,7 @@ class LocationStore extends ChangeNotifier {
 
   static final instance = LocationStore._();
   static const _storageKey = 'location_hierarchy_v1';
+  static const _snapshotKey = 'location_snapshot_v2:${SupabaseConfig.url}';
   static const _cacheVersionKey = 'location_cache_version';
   static const _cacheVersion = String.fromEnvironment(
     'CACHE_VERSION',
@@ -26,32 +27,54 @@ class LocationStore extends ChangeNotifier {
   SupabaseClient get _client => SupabaseConfig.client!;
 
   Future<void> load() async {
-    await _loadCache();
-    if (SupabaseConfig.client != null) unawaited(refreshFromRemote());
+    final fresh = await _loadCache();
+    if (!fresh && SupabaseConfig.client != null) {
+      unawaited(refreshFromRemote());
+    }
   }
 
-  Future<void> _loadCache() async {
-    final preferences = await SharedPreferences.getInstance();
-    final savedVersion = preferences.getString(_cacheVersionKey);
-    if (savedVersion != _cacheVersion) {
-      await preferences.remove(_storageKey);
-      await preferences.setString(_cacheVersionKey, _cacheVersion);
-      data = {};
-      return;
+  Future<bool> _loadCache() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final raw = preferences.getString(_snapshotKey);
+      if (raw != null) {
+        final snapshot = jsonDecode(raw) as Map<String, dynamic>;
+        if (snapshot['version'] != _cacheVersion) return false;
+        data = _decodeHierarchy(snapshot['data'] as Map<String, dynamic>);
+        _provinceIds
+          ..clear()
+          ..addAll(Map<String, String>.from(snapshot['provinceIds'] as Map));
+        _districtIds
+          ..clear()
+          ..addAll(Map<String, String>.from(snapshot['districtIds'] as Map));
+        final age = DateTime.now().difference(
+          DateTime.fromMillisecondsSinceEpoch(snapshot['savedAt'] as int),
+        );
+        return !age.isNegative && age < const Duration(hours: 24);
+      }
+      if (preferences.getString(_cacheVersionKey) == _cacheVersion) {
+        final legacy = preferences.getString(_storageKey);
+        if (legacy != null) {
+          data = _decodeHierarchy(jsonDecode(legacy) as Map<String, dynamic>);
+        }
+      }
+    } catch (_) {
+      // Refresh from Supabase if local storage is unavailable or invalid.
     }
-    final raw = preferences.getString(_storageKey);
-    if (raw == null) return;
-    final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    data = decoded.map(
-      (province, districts) => MapEntry(
-        province,
-        (districts as Map<String, dynamic>).map(
-          (district, villages) =>
-              MapEntry(district, List<String>.from(villages as List)),
-        ),
-      ),
-    );
+    return false;
   }
+
+  Map<String, Map<String, List<String>>> _decodeHierarchy(
+    Map<String, dynamic> decoded,
+  ) => decoded.map(
+    (province, districts) => MapEntry(
+      province,
+      (districts as Map<String, dynamic>).map(
+        (district, villages) =>
+            MapEntry(district, List<String>.from(villages as List)),
+      ),
+    ),
+  );
 
   Future<void> refreshFromRemote() async {
     try {
@@ -114,8 +137,20 @@ class LocationStore extends ChangeNotifier {
 
   Future<void> _saveCache() async {
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_cacheVersionKey, _cacheVersion);
-    await preferences.setString(_storageKey, jsonEncode(data));
+    final saved = await preferences.setString(
+      _snapshotKey,
+      jsonEncode({
+        'version': _cacheVersion,
+        'savedAt': DateTime.now().millisecondsSinceEpoch,
+        'data': data,
+        'provinceIds': _provinceIds,
+        'districtIds': _districtIds,
+      }),
+    );
+    if (saved) {
+      await preferences.remove(_storageKey);
+      await preferences.remove(_cacheVersionKey);
+    }
   }
 
   Future<void> _finishMutation() async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
@@ -142,19 +143,16 @@ class ListingDetailPage extends StatelessWidget {
                 context: context,
                 builder: (_) => Dialog(
                   backgroundColor: context.colors.shadow,
-                  insetPadding: const EdgeInsets.all(24),
+                  clipBehavior: Clip.antiAlias,
                   child: Stack(
                     children: [
                       InteractiveViewer(
                         child: Center(child: Image.network(url)),
                       ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: IconButton.filled(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close),
-                        ),
+                      const Positioned(
+                        top: 12,
+                        right: 16,
+                        child: AppDialogCloseButton(),
                       ),
                     ],
                   ),

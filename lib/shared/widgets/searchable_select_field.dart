@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 
 /// A form field that opens a dialog with a search box to pick one of [items].
 /// Passing `onChanged: null` disables it, like [DropdownButtonFormField].
@@ -83,7 +84,7 @@ class _SearchDialogState extends State<_SearchDialog> {
               .where((item) => item.toLowerCase().contains(query))
               .toList();
 
-    return AlertDialog(
+    return AppDialog(
       title: Text(widget.title),
       contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       content: SizedBox(

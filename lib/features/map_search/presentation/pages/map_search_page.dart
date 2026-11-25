@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
@@ -174,11 +175,18 @@ class _MapSearchPageState extends State<MapSearchPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'พบที่พัก ${results.length} รายการในรัศมี $_radiusLabel',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'พบที่พัก ${results.length} รายการในรัศมี $_radiusLabel',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const AppDialogCloseButton(),
+                      ],
                     ),
                     if (results.length == 30)
                       Padding(

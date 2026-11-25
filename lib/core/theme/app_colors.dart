@@ -177,20 +177,37 @@ class AppColors extends ThemeExtension<AppColors> {
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
       primary: Color.lerp(primary, other.primary, t)!,
       onPrimary: Color.lerp(onPrimary, other.onPrimary, t)!,
-      primaryContainer: Color.lerp(primaryContainer, other.primaryContainer, t)!,
+      primaryContainer: Color.lerp(
+        primaryContainer,
+        other.primaryContainer,
+        t,
+      )!,
       primaryContainerStrong: Color.lerp(
         primaryContainerStrong,
         other.primaryContainerStrong,
         t,
       )!,
-      onPrimaryContainer:
-          Color.lerp(onPrimaryContainer, other.onPrimaryContainer, t)!,
-      secondaryContainer:
-          Color.lerp(secondaryContainer, other.secondaryContainer, t)!,
-      onSecondaryContainer:
-          Color.lerp(onSecondaryContainer, other.onSecondaryContainer, t)!,
+      onPrimaryContainer: Color.lerp(
+        onPrimaryContainer,
+        other.onPrimaryContainer,
+        t,
+      )!,
+      secondaryContainer: Color.lerp(
+        secondaryContainer,
+        other.secondaryContainer,
+        t,
+      )!,
+      onSecondaryContainer: Color.lerp(
+        onSecondaryContainer,
+        other.onSecondaryContainer,
+        t,
+      )!,
       success: Color.lerp(success, other.success, t)!,
-      successContainer: Color.lerp(successContainer, other.successContainer, t)!,
+      successContainer: Color.lerp(
+        successContainer,
+        other.successContainer,
+        t,
+      )!,
       successContainerBorder: Color.lerp(
         successContainerBorder,
         other.successContainerBorder,
@@ -199,7 +216,11 @@ class AppColors extends ThemeExtension<AppColors> {
       danger: Color.lerp(danger, other.danger, t)!,
       dangerContainer: Color.lerp(dangerContainer, other.dangerContainer, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
-      warningContainer: Color.lerp(warningContainer, other.warningContainer, t)!,
+      warningContainer: Color.lerp(
+        warningContainer,
+        other.warningContainer,
+        t,
+      )!,
       shadow: Color.lerp(shadow, other.shadow, t)!,
     );
   }

@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart' as picker;
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
+import 'package:room_rental/features/admin/data/admin_password_verification.dart';
 import 'package:room_rental/core/utils/thumbnail_compressor.dart';
 import 'package:room_rental/core/utils/thumbnail_cropper.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
@@ -15,7 +17,11 @@ import 'package:room_rental/features/admin/presentation/widgets/pending_listings
 import 'package:room_rental/features/admin/presentation/widgets/thumbnail_crop_dialog.dart';
 import 'package:room_rental/features/locations/data/location_store.dart';
 import 'package:room_rental/shared/widgets/searchable_select_field.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../data/admin_passkeys_stub.dart'
+    if (dart.library.js_interop) '../../data/admin_passkeys_web.dart';
 
 class AdminLocationsPage extends StatefulWidget {
   const AdminLocationsPage({super.key});
@@ -25,12 +31,17 @@ class AdminLocationsPage extends StatefulWidget {
 }
 
 class _AdminLocationsPageState extends State<AdminLocationsPage> {
+  static const _rememberedEmailKey = 'admin_remembered_email';
+
   final store = LocationStore.instance;
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   String? province;
   String? district;
   bool signingIn = false;
+  bool _registeringPasskey = false;
+  bool? _hasPasskey;
+  bool _passkeyStatusUnavailable = false;
   bool importingListings = false;
   bool checkingAdminAccess = true;
   bool hasAdminAccess = false;
@@ -44,8 +55,32 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   @override
   void initState() {
     super.initState();
+    _restoreRememberedEmail();
     _verifyAdminAccess();
-    _loadListingStats();
+  }
+
+  Future<void> _restoreRememberedEmail() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final email = preferences.getString(_rememberedEmailKey);
+      if (mounted &&
+          !signingIn &&
+          emailController.text.isEmpty &&
+          email != null) {
+        emailController.text = email;
+      }
+    } catch (_) {
+      // Local storage is optional for signing in.
+    }
+  }
+
+  Future<void> _rememberEmail(String email) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(_rememberedEmailKey, email);
+    } catch (_) {
+      // A storage failure must not affect a successful sign-in.
+    }
   }
 
   Future<void> _loadListingStats() async {
@@ -97,11 +132,19 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
             .eq('id', user.id)
             .limit(1),
       );
+      final isAdmin = rows.isNotEmpty && rows.first['role'] == 'admin';
       if (!mounted) return;
+      final sameUser = Supabase.instance.client.auth.currentUser?.id == user.id;
       setState(() {
-        hasAdminAccess = rows.isNotEmpty && rows.first['role'] == 'admin';
+        hasAdminAccess = sameUser && isAdmin;
+        _hasPasskey = null;
+        _registeringPasskey = false;
+        _passkeyStatusUnavailable = false;
         checkingAdminAccess = false;
       });
+      if (hasAdminAccess) {
+        await Future.wait([_loadListingStats(), _refreshPasskeyStatus()]);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -118,38 +161,203 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
     super.dispose();
   }
 
-  Future<void> _signIn() async {
+  Future<void> _signIn({bool usePasskey = false}) async {
+    if (signingIn) return;
     setState(() {
       signingIn = true;
       loginError = null;
     });
+    final email = emailController.text.trim();
     try {
       final auth = Supabase.instance.client.auth;
-      final response = await auth.signInWithPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text,
-      );
+      final response = usePasskey
+          ? await signInWithAdminPasskey(auth)
+          : await auth.signInWithPassword(
+              email: email,
+              password: passwordController.text,
+            );
+      final user = response.user;
+      if (user == null) throw const AuthException('เข้าสู่ระบบไม่สำเร็จ');
       final profile = await Supabase.instance.client
           .from('profiles')
           .select('role')
-          .eq('id', response.user!.id)
+          .eq('id', user.id)
           .single();
       if (profile['role'] != 'admin') {
         await auth.signOut();
         throw const AuthException('บัญชีนี้ไม่มีสิทธิ์ Admin');
       }
+      final signedInEmail = user.email ?? (usePasskey ? null : email);
+      if (signedInEmail != null) await _rememberEmail(signedInEmail);
       await store.refreshFromRemote();
-      if (mounted) {
-        setState(() {
-          hasAdminAccess = true;
-          checkingAdminAccess = false;
-        });
-      }
+      if (!mounted || auth.currentUser?.id != user.id) return;
+      passwordController.clear();
+      setState(() {
+        hasAdminAccess = true;
+        _hasPasskey = usePasskey ? true : null;
+        _registeringPasskey = false;
+        _passkeyStatusUnavailable = false;
+        checkingAdminAccess = false;
+      });
+      await Future.wait([
+        _loadListingStats(),
+        if (!usePasskey) _refreshPasskeyStatus(),
+      ]);
     } catch (error) {
-      if (mounted) setState(() => loginError = error.toString());
+      if (mounted) {
+        setState(
+          () => loginError = usePasskey
+              ? _passkeyError(error, 'เข้าสู่ระบบด้วย Passkey ไม่สำเร็จ')
+              : error.toString(),
+        );
+      }
     } finally {
       if (mounted) setState(() => signingIn = false);
     }
+  }
+
+  Future<void> _refreshPasskeyStatus() async {
+    if (!adminPasskeysSupported || !hasAdminAccess) return;
+    final auth = Supabase.instance.client.auth;
+    final userId = auth.currentUser?.id;
+    if (userId == null) return;
+
+    setState(() {
+      _hasPasskey = null;
+      _passkeyStatusUnavailable = false;
+    });
+    try {
+      final registered = await hasAdminPasskey(auth);
+      if (!mounted || auth.currentUser?.id != userId) return;
+      setState(() => _hasPasskey = registered);
+    } catch (_) {
+      if (!mounted || auth.currentUser?.id != userId) return;
+      setState(() => _passkeyStatusUnavailable = true);
+    }
+  }
+
+  Future<void> _registerPasskey() async {
+    if (!hasAdminAccess || _registeringPasskey || _hasPasskey != false) return;
+    final auth = Supabase.instance.client.auth;
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    setState(() => _registeringPasskey = true);
+
+    String message;
+    var registrationStarted = false;
+    try {
+      final password = await _confirmPasskeyPassword();
+      if (password == null || !mounted || auth.currentUser?.id != user.id) {
+        return;
+      }
+      await verifyAdminPassword(user, password);
+      if (!mounted || auth.currentUser?.id != user.id) return;
+
+      registrationStarted = true;
+      await registerAdminPasskey(auth);
+      if (!mounted || auth.currentUser?.id != user.id) return;
+      setState(() => _hasPasskey = true);
+      message = 'ลงทะเบียน Passkey แล้ว';
+    } catch (error) {
+      message = _passkeyError(error, 'ลงทะเบียน Passkey ไม่สำเร็จ');
+    } finally {
+      if (mounted && auth.currentUser?.id == user.id) {
+        setState(() => _registeringPasskey = false);
+      }
+    }
+    if (!mounted || auth.currentUser?.id != user.id) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+    if (registrationStarted && _hasPasskey != true) {
+      await _refreshPasskeyStatus();
+    }
+  }
+
+  Future<String?> _confirmPasskeyPassword() {
+    var password = '';
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        void submit() {
+          if (password.isNotEmpty) Navigator.pop(context, password);
+        }
+
+        return AppDialog(
+          title: const Text('ยืนยันก่อนลงทะเบียน Passkey'),
+          scrollable: true,
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('กรอกรหัสผ่าน Admin เพื่อยืนยันว่าเป็นเจ้าของบัญชี'),
+                const SizedBox(height: 16),
+                TextField(
+                  autofocus: true,
+                  obscureText: true,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  enableIMEPersonalizedLearning: false,
+                  decoration: const InputDecoration(
+                    labelText: 'รหัสผ่าน Admin',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                  onChanged: (value) => password = value,
+                  onSubmitted: (_) => submit(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ยกเลิก'),
+            ),
+            FilledButton(
+              onPressed: submit,
+              child: const Text('ยืนยันรหัสผ่าน'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _passkeyError(Object error, String fallback) {
+    if (error is! AuthException) return '$fallback กรุณาลองอีกครั้ง';
+    if (error.message == 'บัญชีนี้ไม่มีสิทธิ์ Admin') return error.message;
+
+    return switch (error.code) {
+      'admin_reauth_failed' => 'รหัสผ่าน Admin ไม่ถูกต้อง กรุณาลองใหม่',
+      'admin_reauth_rate_limited' =>
+        'ลองยืนยันรหัสผ่านหลายครั้ง กรุณารอสักครู่แล้วลองใหม่',
+      'admin_reauth_unavailable' => 'ยืนยันรหัสผ่านไม่ได้ในขณะนี้ กรุณาลองใหม่',
+      'passkey_disabled' => 'กรุณาเปิด Passkey authentication ใน Supabase ก่อน',
+      'browser_SecurityError' =>
+        'Chrome ตรวจสอบโดเมนไม่ผ่าน โปรดตรวจว่า URL ที่เปิดตรงกับ RP ID และ Origins ใน Supabase',
+      'browser_NotAllowedError' || 'browser_AbortError' =>
+        'Chrome ยังยืนยัน Passkey ไม่สำเร็จ โปรดลองใหม่และทำตามขั้นตอนในหน้าต่าง Chrome',
+      'browser_InvalidStateError' || 'webauthn_credential_exists' =>
+        'อุปกรณ์นี้มี Passkey สำหรับบัญชีนี้แล้ว ลองออกจากระบบแล้วเข้าใหม่ด้วย Passkey',
+      'browser_NotSupportedError' || 'browser_ConstraintError' =>
+        'เบราว์เซอร์หรืออุปกรณ์นี้สร้างหรือใช้ Passkey ตามที่ร้องขอไม่ได้ ลองใช้ Chrome รุ่นล่าสุดหรืออุปกรณ์ที่รองรับ',
+      'browser_EncodingError' =>
+        'Chrome อ่านข้อมูล Passkey จาก Supabase ไม่ได้ กรุณาลองใหม่',
+      'browser_passkey_error' => '$fallback เบราว์เซอร์ปฏิเสธคำขอ Passkey',
+      'webauthn_challenge_expired' ||
+      'webauthn_challenge_not_found' => 'คำขอ Passkey หมดอายุแล้ว กรุณาลองใหม่',
+      'webauthn_credential_not_found' =>
+        'Supabase ไม่พบ Passkey นี้ ให้เข้าด้วยรหัสผ่านแล้วลงทะเบียนใหม่',
+      'webauthn_verification_failed' =>
+        'Supabase ตรวจสอบ Passkey ไม่ผ่าน โปรดตรวจว่าโดเมนและ Origin ตรงกับค่าที่ตั้งไว้',
+      'too_many_passkeys' => 'บัญชีนี้มี Passkey ครบจำนวนที่อนุญาตแล้ว',
+      final code? when RegExp(r'^[a-z_]+$').hasMatch(code) =>
+        '$fallback (Supabase: $code)',
+      _ => '$fallback กรุณาลองอีกครั้ง',
+    };
   }
 
   Future<void> _openAiParser() async {
@@ -488,7 +696,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       if (!mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => AppDialog(
           title: const Text('ยืนยันแทนที่รายชื่อบ้านทั้งหมด'),
           content: Text(
             'เมือง “$districtName” มีรายชื่อเดิม '
@@ -542,7 +750,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
     final controller = TextEditingController(text: initial);
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppDialog(
         title: Text(title),
         content: TextField(
           controller: controller,
@@ -576,7 +784,7 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   Future<bool> _confirmDelete(String name) async =>
       await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => AppDialog(
           title: const Text('ยืนยันการลบ'),
           content: Text('ต้องการลบ “$name” และข้อมูลภายในทั้งหมดหรือไม่?'),
           actions: [
@@ -625,67 +833,82 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       return Scaffold(
         appBar: AppBar(title: const Text('Admin • เข้าสู่ระบบ')),
         body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Icon(
-                      Icons.admin_panel_settings_outlined,
-                      size: 52,
-                      color: context.colors.primary,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'เข้าสู่ระบบผู้ดูแล',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Icon(
+                        Icons.admin_panel_settings_outlined,
+                        size: 52,
+                        color: context.colors.primary,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'อีเมล',
-                        prefixIcon: Icon(Icons.email_outlined),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'เข้าสู่ระบบผู้ดูแล',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: true,
-                      onSubmitted: (_) => _signIn(),
-                      decoration: const InputDecoration(
-                        labelText: 'รหัสผ่าน',
-                        prefixIcon: Icon(Icons.lock_outline),
+                      const SizedBox(height: 24),
+                      TextField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'อีเมล',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
                       ),
-                    ),
-                    if (loginError != null) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        loginError!,
-                        style: TextStyle(color: context.colors.danger),
+                      TextField(
+                        controller: passwordController,
+                        obscureText: true,
+                        onSubmitted: (_) => _signIn(),
+                        decoration: const InputDecoration(
+                          labelText: 'รหัสผ่าน',
+                          prefixIcon: Icon(Icons.lock_outline),
+                        ),
                       ),
+                      if (loginError != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          loginError!,
+                          style: TextStyle(color: context.colors.danger),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      FilledButton.icon(
+                        onPressed: signingIn ? null : _signIn,
+                        icon: signingIn
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.login),
+                        label: const Text('เข้าสู่ระบบ Admin'),
+                      ),
+                      if (adminPasskeysSupported) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: signingIn
+                              ? null
+                              : () => _signIn(usePasskey: true),
+                          icon: const Icon(Icons.fingerprint),
+                          label: const Text('เข้าสู่ระบบด้วย Passkey'),
+                        ),
+                      ],
                     ],
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      onPressed: signingIn ? null : _signIn,
-                      icon: signingIn
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.login),
-                      label: const Text('เข้าสู่ระบบ Admin'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -788,7 +1011,56 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       backgroundColor: context.colors.background,
       appBar: AppBar(
         title: const Text('Admin • จัดการพื้นที่'),
+        bottom: _hasPasskey == true
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(36),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 18,
+                        color: context.colors.success,
+                      ),
+                      const SizedBox(width: 6),
+                      const Text('ลงทะเบียน Passkey แล้ว'),
+                    ],
+                  ),
+                ),
+              )
+            : null,
         actions: [
+          if (adminPasskeysSupported && _hasPasskey != true)
+            if (_passkeyStatusUnavailable)
+              IconButton(
+                tooltip: 'ลองตรวจสถานะ Passkey อีกครั้ง',
+                onPressed: _refreshPasskeyStatus,
+                icon: const Icon(Icons.refresh_rounded),
+              )
+            else if (MediaQuery.sizeOf(context).width >= 720)
+              TextButton.icon(
+                onPressed: _hasPasskey == false && !_registeringPasskey
+                    ? _registerPasskey
+                    : null,
+                icon: const Icon(Icons.fingerprint),
+                label: Text(
+                  _hasPasskey == null
+                      ? 'กำลังตรวจ Passkey…'
+                      : 'ลงทะเบียน Passkey',
+                ),
+              )
+            else
+              IconButton(
+                tooltip: _hasPasskey == null
+                    ? 'กำลังตรวจ Passkey…'
+                    : 'ลงทะเบียน Passkey',
+                onPressed: _hasPasskey == false && !_registeringPasskey
+                    ? _registerPasskey
+                    : null,
+                icon: const Icon(Icons.fingerprint),
+              ),
           TextButton.icon(
             onPressed: () async {
               await Supabase.instance.client.auth.signOut();
@@ -1462,7 +1734,8 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
     final villages = province == null || district == null
         ? const <String>[]
         : store.data[province]?[district] ?? const <String>[];
-    return AlertDialog(
+    return AppDialog(
+      closeEnabled: !saving,
       title: Text(widget.draft == null ? 'เพิ่มที่พัก' : 'แก้ไขแบบร่าง'),
       content: SizedBox(
         width: 680,
@@ -1966,14 +2239,10 @@ class _AiParserDialogState extends State<_AiParserDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Row(
-      children: [
-        Icon(Icons.auto_awesome_outlined),
-        SizedBox(width: 10),
-        Text('AI แยกข้อมูลประกาศ'),
-      ],
-    ),
+  Widget build(BuildContext context) => AppDialog(
+    closeEnabled: !loading && !saving,
+    icon: const Icon(Icons.auto_awesome_outlined),
+    title: const Text('AI แยกข้อมูลประกาศ'),
     content: SizedBox(
       width: 680,
       child: SingleChildScrollView(

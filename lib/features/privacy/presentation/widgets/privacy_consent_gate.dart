@@ -94,8 +94,9 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                         children: [
                           CircleAvatar(
                             radius: 26,
-                            backgroundColor: context.colors.onPrimary
-                                .withAlpha(0x3D),
+                            backgroundColor: context.colors.onPrimary.withAlpha(
+                              0x3D,
+                            ),
                             child: Icon(
                               Icons.privacy_tip_outlined,
                               color: context.colors.onPrimary,
@@ -277,9 +278,7 @@ class _ConsentCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: value
-        ? context.colors.primaryContainer
-        : context.colors.background,
+    color: value ? context.colors.primaryContainer : context.colors.background,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
       side: BorderSide(

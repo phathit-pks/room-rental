@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/thumbnail_cropper.dart';
 
@@ -62,7 +63,7 @@ class _ThumbnailCropDialogState extends State<ThumbnailCropDialog> {
       160.0,
       MediaQuery.sizeOf(context).height - 320,
     );
-    return AlertDialog(
+    return AppDialog(
       title: const Text('ปรับตำแหน่งรูป Thumbnail'),
       content: SizedBox(
         width: 520,

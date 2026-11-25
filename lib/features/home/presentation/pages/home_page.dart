@@ -7,7 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/theme/theme_store.dart';
 import 'package:room_rental/core/utils/geo_distance.dart';
-import 'package:room_rental/core/utils/relative_date_formatter.dart';
+import 'package:room_rental/features/home/presentation/widgets/sponsored_listing.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/auth/presentation/widgets/client_auth_button.dart';
 import 'package:room_rental/features/favorites/data/favorite_store.dart';
@@ -17,7 +17,6 @@ import 'package:room_rental/features/listings/domain/entities/rental_listing.dar
 import 'package:room_rental/features/listings/presentation/pages/listing_detail_page.dart';
 import 'package:room_rental/features/locations/data/location_store.dart';
 import 'package:room_rental/features/map_search/presentation/pages/map_search_page.dart';
-import 'package:room_rental/features/home/presentation/pages/nearby_search_cache.dart';
 import 'package:room_rental/shared/widgets/app_logo.dart';
 import 'package:room_rental/shared/widgets/day_night_toggle.dart';
 import 'package:room_rental/shared/widgets/notice_dialog.dart';
@@ -39,7 +38,6 @@ class _HomePageState extends State<HomePage> {
   bool _isSearchMode = false;
   bool _usingCurrentLocation = false;
   bool _searchInProgress = false;
-  NearbySearchCache? _nearbySearchCache;
   String? _province;
   String? _district;
   String? _village;
@@ -52,17 +50,43 @@ class _HomePageState extends State<HomePage> {
     _advertisements = _repository.featuredAdvertisements();
   }
 
-  Future<ListingPage> _loadRecommendations() async {
+  Future<Position?> _getCurrentPosition() async {
+    if (!kIsWeb) {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied && mounted) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        return null;
+      }
+    }
+
     try {
-      final permission = await _ensureLocationPermission();
-      if (permission != LocationPermission.denied &&
-          permission != LocationPermission.deniedForever) {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 8),
-          ),
-        );
+      // Browsers ask for permission as part of getting the position.
+      return await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: kIsWeb ? 8 : 15),
+        ),
+      );
+    } on TimeoutException {
+      if (kIsWeb) rethrow;
+      final lastPosition = await Geolocator.getLastKnownPosition();
+      if (lastPosition != null &&
+          DateTime.now().difference(lastPosition.timestamp) <
+              const Duration(minutes: 5)) {
+        return lastPosition;
+      }
+      return null;
+    }
+  }
+
+  Future<ListingPage> _loadRecommendations() async {
+    Position? position;
+    try {
+      position = await _getCurrentPosition();
+      if (position != null) {
         final nearby = await _repository.recommendNearby(
           latitude: position.latitude,
           longitude: position.longitude,
@@ -75,7 +99,7 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {
       // Permission denial, unsupported browsers, and timeouts use latest ads.
     }
-    return _repository.searchPage(pageSize: 9);
+    return _withDistances(await _repository.searchPage(pageSize: 9), position);
   }
 
   Future<void> _search(
@@ -111,58 +135,10 @@ class _HomePageState extends State<HomePage> {
     String? district,
     String? village,
   }) async {
+    Position? position;
     try {
-      final permission = await _ensureLocationPermission();
-      if (permission != LocationPermission.denied &&
-          permission != LocationPermission.deniedForever) {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 8),
-          ),
-        );
-        final cache = _nearbySearchCache;
-        final canUseCache =
-            cache != null &&
-            DateTime.now().difference(cache.lastSynced) <
-                const Duration(minutes: 5) &&
-            cache.matches(
-              province: province,
-              district: district,
-              village: village,
-            ) &&
-            distanceBetweenMeters(
-                  position.latitude,
-                  position.longitude,
-                  cache.latitude,
-                  cache.longitude,
-                ) <
-                750;
-        if (canUseCache) {
-          try {
-            final updates = await _repository.searchNearest(
-              latitude: position.latitude,
-              longitude: position.longitude,
-              province: province,
-              district: district,
-              village: village,
-              updatedAfter: cache.lastSynced,
-            );
-            cache.merge(updates.items);
-            cache.lastSynced = DateTime.now();
-          } catch (_) {
-            // Keep using the local cache if an incremental refresh fails.
-          }
-          final page = _pageFromCache(
-            cache,
-            latitude: position.latitude,
-            longitude: position.longitude,
-          );
-          if (page.items.isNotEmpty) {
-            if (mounted) setState(() => _usingCurrentLocation = true);
-            return page;
-          }
-        }
+      position = await _getCurrentPosition();
+      if (position != null) {
         final nearest = await _repository.searchNearest(
           latitude: position.latitude,
           longitude: position.longitude,
@@ -170,63 +146,68 @@ class _HomePageState extends State<HomePage> {
           district: district,
           village: village,
         );
-        if (nearest.items.isNotEmpty) {
-          _nearbySearchCache = NearbySearchCache(
-            province: province,
-            district: district,
-            village: village,
-            latitude: position.latitude,
-            longitude: position.longitude,
-            items: nearest.items,
-          );
+        final items = [
+          for (final room in nearest.items)
+            if (room case RentalListing(:final latitude?, :final longitude?))
+              room.withDistanceMeters(
+                distanceBetweenMeters(
+                  position.latitude,
+                  position.longitude,
+                  latitude,
+                  longitude,
+                ),
+              ),
+        ]..sort((a, b) => a.distanceMeters!.compareTo(b.distanceMeters!));
+
+        if (items.isNotEmpty) {
           if (mounted) setState(() => _usingCurrentLocation = true);
-          return _pageFromCache(
-            _nearbySearchCache!,
-            latitude: position.latitude,
-            longitude: position.longitude,
+          return ListingPage(
+            items: items.take(9).toList(),
+            page: 1,
+            pageSize: 9,
+            totalItems: math.min(items.length, 9),
           );
         }
       }
     } catch (_) {
       // A denied location permission falls back to the latest local listings.
     }
-    return _repository.searchPage(
-      province: province,
-      district: district,
-      village: village,
-      page: 1,
-      pageSize: 9,
+    return _withDistances(
+      await _repository.searchPage(
+        province: province,
+        district: district,
+        village: village,
+        page: 1,
+        pageSize: 9,
+      ),
+      position,
     );
   }
 
-  ListingPage _pageFromCache(
-    NearbySearchCache cache, {
-    required double latitude,
-    required double longitude,
-  }) {
-    final items =
-        cache.items
-            .where((item) => item.latitude != null && item.longitude != null)
-            .map(
-              (item) => item.withDistanceMeters(
-                distanceBetweenMeters(
-                  latitude,
-                  longitude,
-                  item.latitude!,
-                  item.longitude!,
-                ),
-              ),
-            )
-            .toList()
-          ..sort(
-            (first, second) =>
-                first.distanceMeters!.compareTo(second.distanceMeters!),
-          );
+  ListingPage _withDistances(ListingPage page, Position? position) {
+    if (position == null) return page;
+
     return ListingPage(
-      items: items.take(9).toList(),
-      page: 1,
-      pageSize: 9,
-      totalItems: items.length > 9 ? 9 : items.length,
+      items: page.items.map((item) {
+        final latitude = item.latitude;
+        final longitude = item.longitude;
+        if (item.distanceMeters != null ||
+            latitude == null ||
+            longitude == null) {
+          return item;
+        }
+        return item.withDistanceMeters(
+          distanceBetweenMeters(
+            position.latitude,
+            position.longitude,
+            latitude,
+            longitude,
+          ),
+        );
+      }).toList(),
+      page: page.page,
+      pageSize: page.pageSize,
+      totalItems: page.totalItems,
     );
   }
 
@@ -239,17 +220,6 @@ class _HomePageState extends State<HomePage> {
       _village = null;
       _listings = _loadRecommendations();
     });
-  }
-
-  Future<LocationPermission> _ensureLocationPermission() async {
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      if (!mounted) return permission;
-      final proceed = await _confirmLocationPriming(context);
-      if (!proceed) return permission;
-      permission = await Geolocator.requestPermission();
-    }
-    return permission;
   }
 
   void _changePage(int page) {
@@ -276,177 +246,51 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final showMobileMenu =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+
     return Scaffold(
       backgroundColor: context.colors.background,
+      drawer: showMobileMenu
+          ? _HomeMenu(onSearchPressed: _scrollToSearch)
+          : null,
       body: _InteractivePageBackground(
-        child: SelectionArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _NavigationBar(onSearchPressed: _scrollToSearch),
-              ),
-              SliverToBoxAdapter(
-                child: _HeroSection(
-                  key: _searchSectionKey,
-                  onSearch: _search,
-                  onClear: _clearSearch,
-                  advertisements: _advertisements,
+        child: SafeArea(
+          child: SelectionArea(
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _NavigationBar(
+                    onSearchPressed: _scrollToSearch,
+                    showMobileMenu: showMobileMenu,
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: _FeaturedSection(
-                  listings: _listings,
-                  isSearchMode: _isSearchMode,
-                  usingCurrentLocation: _usingCurrentLocation,
-                  onPageChanged: _changePage,
-                  onSearchPressed: _scrollToSearch,
+                SliverToBoxAdapter(
+                  child: _HeroSection(
+                    key: _searchSectionKey,
+                    onSearch: _search,
+                    onClear: _clearSearch,
+                    advertisements: _advertisements,
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: _RecentlyViewedSection(repository: _repository),
-              ),
-              const SliverToBoxAdapter(child: _HowItWorksSection()),
-              const SliverToBoxAdapter(child: _CallToAction()),
-              const SliverToBoxAdapter(child: _Footer()),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-Future<bool> _confirmLocationPriming(BuildContext context) async {
-  final result = await showGeneralDialog<bool>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: context.colors.shadow.withAlpha(0x66),
-    transitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (context, _, _) => const _LocationPrimingDialog(),
-    transitionBuilder: (context, animation, _, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeIn,
-      );
-      return FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.9, end: 1).animate(curved),
-          child: child,
-        ),
-      );
-    },
-  );
-  return result ?? false;
-}
-
-class _LocationPrimingDialog extends StatelessWidget {
-  const _LocationPrimingDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: Material(
-            color: context.colors.surface,
-            borderRadius: BorderRadius.circular(24),
-            elevation: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: context.colors.shadow.withAlpha(0x29),
-                    blurRadius: 40,
-                    offset: const Offset(0, 20),
+                SliverToBoxAdapter(
+                  child: _FeaturedSection(
+                    listings: _listings,
+                    isSearchMode: _isSearchMode,
+                    usingCurrentLocation: _usingCurrentLocation,
+                    onPageChanged: _changePage,
+                    onSearchPressed: _scrollToSearch,
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          context.colors.primaryContainer,
-                          context.colors.primaryContainerStrong,
-                        ],
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.my_location_rounded,
-                      size: 36,
-                      color: context.colors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'ใช้ตำแหน่งของคุณไหม?',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: context.colors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'เราจะขอตำแหน่งปัจจุบันของคุณ เพื่อแนะนำห้องที่อยู่ใกล้คุณที่สุด '
-                    'โดยใช้ชั่วคราวระหว่างค้นหาและไม่บันทึกพิกัดของคุณลงฐานข้อมูล',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.5,
-                      color: context.colors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: context.colors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      child: const Text('อนุญาตใช้ตำแหน่ง'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        'ไม่อนุญาต',
-                        style: TextStyle(color: context.colors.textMuted),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                SliverToBoxAdapter(
+                  child: _RecentlyViewedSection(repository: _repository),
+                ),
+                const SliverToBoxAdapter(child: _HowItWorksSection()),
+                const SliverToBoxAdapter(child: _CallToAction()),
+                const SliverToBoxAdapter(child: _Footer()),
+              ],
             ),
           ),
         ),
@@ -618,10 +462,81 @@ class _PageWidth extends StatelessWidget {
   );
 }
 
-class _NavigationBar extends StatelessWidget {
-  const _NavigationBar({required this.onSearchPressed});
+class _HomeMenu extends StatelessWidget {
+  const _HomeMenu({required this.onSearchPressed});
 
   final VoidCallback onSearchPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scaffold = Scaffold.of(context);
+    final navigator = Navigator.of(context);
+
+    return Drawer(
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+              child: Row(
+                children: [
+                  const Expanded(child: AppLogo()),
+                  IconButton(
+                    tooltip: 'ปิดเมนู',
+                    onPressed: scaffold.closeDrawer,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.search_rounded),
+              title: const Text('ค้นหาห้อง'),
+              onTap: () {
+                scaffold.closeDrawer();
+                onSearchPressed();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.map_outlined),
+              title: const Text('ค้นหาบนแผนที่'),
+              onTap: () {
+                scaffold.closeDrawer();
+                navigator.push(
+                  MaterialPageRoute(builder: (_) => const MapSearchPage()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_home_outlined),
+              title: const Text('ลงประกาศ'),
+              onTap: () {
+                scaffold.closeDrawer();
+                navigator.pushNamed('/contact');
+              },
+            ),
+            const Divider(),
+            const ListTile(
+              leading: Icon(Icons.brightness_6_outlined),
+              title: Text('โหมดกลางวัน–กลางคืน'),
+              trailing: _ThemeToggle(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavigationBar extends StatelessWidget {
+  const _NavigationBar({
+    required this.onSearchPressed,
+    required this.showMobileMenu,
+  });
+
+  final VoidCallback onSearchPressed;
+  final bool showMobileMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -629,12 +544,23 @@ class _NavigationBar extends StatelessWidget {
       color: context.colors.surface,
       child: _PageWidth(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: EdgeInsets.symmetric(
+            horizontal: showMobileMenu ? 12 : 24,
+            vertical: 16,
+          ),
           child: Row(
             children: [
-              const AppLogo(),
-              const Spacer(),
-              if (MediaQuery.sizeOf(context).width > 920) ...[
+              if (showMobileMenu)
+                IconButton(
+                  tooltip: 'เปิดเมนู',
+                  onPressed: Scaffold.of(context).openDrawer,
+                  icon: const Icon(Icons.menu_rounded),
+                ),
+              const Expanded(
+                child: Align(alignment: Alignment.centerLeft, child: AppLogo()),
+              ),
+              if (!showMobileMenu &&
+                  MediaQuery.sizeOf(context).width > 920) ...[
                 TextButton(
                   onPressed: onSearchPressed,
                   child: const Text('ค้นหาห้อง'),
@@ -646,18 +572,10 @@ class _NavigationBar extends StatelessWidget {
                 TextButton(onPressed: () {}, child: const Text('เกี่ยวกับเรา')),
                 const SizedBox(width: 12),
               ],
-              AnimatedBuilder(
-                animation: ThemeStore.instance,
-                builder: (context, _) {
-                  return DayNightToggle(
-                    width: 52,
-                    height: 26,
-                    isDark: ThemeStore.instance.isDark,
-                    onChanged: (value) => ThemeStore.instance.setDark(value),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
+              if (!showMobileMenu) ...[
+                const _ThemeToggle(),
+                const SizedBox(width: 12),
+              ],
               const ClientAuthButton(),
             ],
           ),
@@ -665,6 +583,21 @@ class _NavigationBar extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ThemeToggle extends StatelessWidget {
+  const _ThemeToggle();
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: ThemeStore.instance,
+    builder: (context, _) => DayNightToggle(
+      width: 52,
+      height: 26,
+      isDark: ThemeStore.instance.isDark,
+      onChanged: ThemeStore.instance.setDark,
+    ),
+  );
 }
 
 class _HeroSection extends StatelessWidget {
@@ -688,7 +621,7 @@ class _HeroSection extends StatelessWidget {
           children: [
             const _PromotionBanner(),
             const SizedBox(height: 28),
-            _SponsoredListing(advertisements: advertisements),
+            SponsoredListing(advertisements: advertisements),
             const SizedBox(height: 30),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 760),
@@ -697,16 +630,7 @@ class _HeroSection extends StatelessWidget {
                 children: [
                   _SearchBox(onSearch: onSearch, onClear: onClear),
                   const SizedBox(height: 22),
-                  const Wrap(
-                    spacing: 22,
-                    runSpacing: 10,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _TrustItem(Icons.verified_outlined, 'ประกาศตรวจสอบแล้ว'),
-                      _TrustItem(Icons.chat_bubble_outline, 'ติดต่อได้ทันที'),
-                      _TrustItem(Icons.favorite_border, 'บันทึกห้องที่ชอบ'),
-                    ],
-                  ),
+                  const _TrustItems(),
                 ],
               ),
             ),
@@ -715,291 +639,6 @@ class _HeroSection extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SponsoredListing extends StatefulWidget {
-  const _SponsoredListing({required this.advertisements});
-
-  final Future<List<RentalListing>> advertisements;
-
-  @override
-  State<_SponsoredListing> createState() => _SponsoredListingState();
-}
-
-class _SponsoredListingState extends State<_SponsoredListing> {
-  List<RentalListing>? _rooms;
-  int _index = 0;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final now = DateTime.now().toUtc();
-      final rooms = (await widget.advertisements)
-          .where(
-            (room) =>
-                room.advertisementEndsAt == null ||
-                room.advertisementEndsAt!.toUtc().isAfter(now),
-          )
-          .toList();
-      if (!mounted) return;
-      setState(() => _rooms = rooms);
-      if (rooms.isNotEmpty) {
-        _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-          if (!mounted) return;
-          final currentTime = DateTime.now().toUtc();
-          setState(() {
-            _rooms = _rooms!
-                .where(
-                  (room) =>
-                      room.advertisementEndsAt == null ||
-                      room.advertisementEndsAt!.toUtc().isAfter(currentTime),
-                )
-                .toList();
-            if (_rooms!.isEmpty) {
-              _index = 0;
-              _timer?.cancel();
-            } else {
-              _index = (_index + 1) % _rooms!.length;
-            }
-          });
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _rooms = const []);
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_rooms == null) {
-      return const SizedBox(
-        height: 220,
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (_rooms!.isEmpty) return const SizedBox.shrink();
-    final room = _rooms![_index];
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 1100),
-      switchInCurve: Curves.easeInOutCubic,
-      switchOutCurve: Curves.easeInOutCubic,
-      transitionBuilder: (child, animation) {
-        final slide = Tween<Offset>(
-          begin: const Offset(0.045, 0),
-          end: Offset.zero,
-        ).animate(animation);
-        return ClipRect(
-          child: FadeTransition(
-            opacity: animation,
-            child: SlideTransition(position: slide, child: child),
-          ),
-        );
-      },
-      child: KeyedSubtree(
-        key: ValueKey(room.id),
-        child: _content(context, room),
-      ),
-    );
-  }
-
-  Widget _content(BuildContext context, RentalListing room) {
-    return Container(
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: context.colors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: context.colors.border),
-        boxShadow: [
-          BoxShadow(
-            color: context.colors.shadow.withAlpha(0x14),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 720;
-          final preview = Container(
-            height: compact ? 210 : 300,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  context.colors.primaryContainerStrong,
-                  context.colors.primaryContainer,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: room.imageUrl.isEmpty
-                      ? Center(
-                          child: Icon(
-                            Icons.apartment_rounded,
-                            size: 132,
-                            color: context.colors.primary.withAlpha(0x66),
-                          ),
-                        )
-                      : Image.network(room.imageUrl, fit: BoxFit.cover),
-                ),
-                const Positioned(left: 16, top: 16, child: _SponsoredBadge()),
-              ],
-            ),
-          );
-          final details = Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  room.title,
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 19,
-                      color: context.colors.textMuted,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        room.location,
-                        style: TextStyle(color: context.colors.textMuted),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.schedule_outlined,
-                      size: 18,
-                      color: context.colors.textMuted,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'อัปเดต${formatRelativeDate(DateTime.now())}',
-                      style: TextStyle(color: context.colors.textMuted),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: room.amenities.isEmpty
-                      ? const [
-                          _Amenity(
-                            icon: Icons.verified_outlined,
-                            label: 'ประกาศตรวจสอบแล้ว',
-                          ),
-                        ]
-                      : room.amenities
-                            .take(3)
-                            .map(
-                              (item) => _Amenity(
-                                icon: Icons.check_circle_outline,
-                                label: item,
-                              ),
-                            )
-                            .toList(),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ListingDetailPage(room: room),
-                        ),
-                      ),
-                      child: const Text('ดูรายละเอียด'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [preview, details],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(flex: 11, child: preview),
-              Expanded(flex: 9, child: details),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SponsoredBadge extends StatelessWidget {
-  const _SponsoredBadge();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-    decoration: BoxDecoration(
-      color: context.colors.surface,
-      borderRadius: BorderRadius.circular(99),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.campaign_outlined, size: 17, color: context.colors.primary),
-        const SizedBox(width: 6),
-        const Text('โฆษณา', style: TextStyle(fontWeight: FontWeight.bold)),
-      ],
-    ),
-  );
-}
-
-class _Amenity extends StatelessWidget {
-  const _Amenity({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 18, color: context.colors.textSecondary),
-      const SizedBox(width: 5),
-      Text(label, style: TextStyle(color: context.colors.textSecondary)),
-    ],
-  );
 }
 
 class _PromotionBanner extends StatelessWidget {
@@ -1321,20 +960,71 @@ class _SearchBoxState extends State<_SearchBox> {
   }
 }
 
-class _TrustItem extends StatelessWidget {
-  const _TrustItem(this.icon, this.label);
-  final IconData icon;
-  final String label;
+class _TrustItems extends StatelessWidget {
+  const _TrustItems();
+
+  static const _items = [
+    (Icons.verified_outlined, 'ประกาศตรวจสอบแล้ว'),
+    (Icons.chat_bubble_outline, 'ติดต่อได้ทันที'),
+    (Icons.favorite_border, 'บันทึกห้องที่ชอบ'),
+  ];
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 19, color: context.colors.success),
-      const SizedBox(width: 6),
-      Text(label, style: TextStyle(color: context.colors.textSecondary)),
-    ],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.maxWidth < 480) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 8,
+          children: [
+            for (final (icon, label) in _items)
+              Expanded(child: _TrustItem(icon, label, stacked: true)),
+          ],
+        );
+      }
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        spacing: 22,
+        children: [
+          for (final (icon, label) in _items)
+            Flexible(child: _TrustItem(icon, label)),
+        ],
+      );
+    },
   );
+}
+
+class _TrustItem extends StatelessWidget {
+  const _TrustItem(this.icon, this.label, {this.stacked = false});
+
+  final IconData icon;
+  final String label;
+  final bool stacked;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconWidget = Icon(icon, size: 19, color: context.colors.success);
+    final labelWidget = Text(
+      label,
+      textAlign: stacked ? TextAlign.center : TextAlign.start,
+      style: TextStyle(color: context.colors.textSecondary),
+    );
+    if (stacked) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 6,
+        children: [iconWidget, labelWidget],
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: 6,
+      children: [
+        iconWidget,
+        Flexible(child: labelWidget),
+      ],
+    );
+  }
 }
 
 class _FeaturedSection extends StatefulWidget {
@@ -2098,8 +1788,7 @@ class _RecentlyViewedSection extends StatefulWidget {
   final SupabaseListingRepository repository;
 
   @override
-  State<_RecentlyViewedSection> createState() =>
-      _RecentlyViewedSectionState();
+  State<_RecentlyViewedSection> createState() => _RecentlyViewedSectionState();
 }
 
 class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
@@ -2131,9 +1820,9 @@ class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
               children: [
                 Text(
                   'ดูล่าสุด',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
@@ -2169,9 +1858,9 @@ class _RecentlyViewedCard extends StatelessWidget {
 
   final RentalListing room;
 
-  void _openDetail(BuildContext context) => Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => ListingDetailPage(room: room)),
-  );
+  void _openDetail(BuildContext context) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => ListingDetailPage(room: room)));
 
   @override
   Widget build(BuildContext context) {

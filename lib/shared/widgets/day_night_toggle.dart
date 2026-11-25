@@ -114,8 +114,14 @@ class _Thumb extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Opacity(opacity: 1 - t, child: _Sun(size: size)),
-          Opacity(opacity: t, child: _Moon(size: size)),
+          Opacity(
+            opacity: 1 - t,
+            child: _Sun(size: size),
+          ),
+          Opacity(
+            opacity: t,
+            child: _Moon(size: size),
+          ),
         ],
       ),
     );

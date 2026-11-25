@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:room_rental/core/theme/app_theme.dart';
 import 'package:room_rental/core/theme/theme_store.dart';
@@ -21,7 +22,7 @@ class RoomRentalApp extends StatelessWidget {
           themeMode: ThemeStore.instance.mode,
           routes: {
             '/': (_) => const HomePage(),
-            '/admin': (_) => const AdminLocationsPage(),
+            if (kIsWeb) '/admin': (_) => const AdminLocationsPage(),
             '/contact': (_) => const ContactPage(),
           },
         );

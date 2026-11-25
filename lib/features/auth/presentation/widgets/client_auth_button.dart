@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:room_rental/core/theme/app_colors.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
+import 'package:room_rental/shared/widgets/app_logo.dart';
 
 Future<void> showClientSignInDialog(BuildContext context) => showDialog<void>(
   context: context,
@@ -144,80 +146,96 @@ class _GoogleSignInDialogState extends State<_GoogleSignInDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    icon: Container(
-      width: 58,
-      height: 58,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: context.colors.primaryContainer,
-        shape: BoxShape.circle,
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+
+    return AppDialog(
+      title: const Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(width: 126, height: 40, child: AppLogo()),
       ),
-      child: const Icon(Icons.person_add_alt_1_outlined, size: 30),
-    ),
-    title: const Text('เข้าสู่ระบบหรือสมัครสมาชิก'),
-    content: SizedBox(
-      width: 390,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'ใช้บัญชี Google เพื่อบันทึกรายการโปรดและใช้งานบริการสำหรับสมาชิก',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
+      scrollable: true,
+      content: SizedBox(
+        width: 352,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                'เข้าสู่ระบบหรือสมัครสมาชิก',
+                style: text.headlineSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'ใช้บัญชี Google เพื่อบันทึกห้องที่ชอบและใช้บริการสำหรับสมาชิก',
+              style: text.bodyMedium?.copyWith(
+                color: colors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 22),
+            FilledButton.icon(
               onPressed: _loading ? null : _signIn,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
               icon: _loading
                   ? const SizedBox.square(
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Container(
-                      width: 24,
-                      height: 24,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: context.colors.borderStrong),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Text(
+                  : const CircleAvatar(
+                      radius: 12,
+                      backgroundColor: Colors.white,
+                      foregroundColor: Color(0xFF1A73E8),
+                      child: Text(
                         'G',
                         style: TextStyle(
-                          color: Color(0xFF4285F4),
-                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-              label: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('ดำเนินการต่อด้วย Google'),
+              label: Text(
+                _loading ? 'กำลังเชื่อมต่อ…' : 'ดำเนินการต่อด้วย Google',
               ),
             ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  _error!,
+                  style: text.bodySmall?.copyWith(color: colors.danger),
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
             Text(
-              _error!,
-              style: TextStyle(color: context.colors.danger, fontSize: 12),
+              'การดำเนินการต่อหมายถึงคุณยอมรับนโยบายการใช้งานของเว็บไซต์',
+              textAlign: TextAlign.center,
+              style: text.bodySmall?.copyWith(
+                color: colors.textMuted,
+                height: 1.5,
+              ),
             ),
           ],
-          const SizedBox(height: 14),
-          Text(
-            'การดำเนินการต่อหมายถึงคุณยอมรับนโยบายการใช้งานของเว็บไซต์',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: context.colors.textMuted, fontSize: 12),
-          ),
-        ],
+        ),
       ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: _loading ? null : () => Navigator.pop(context),
-        child: const Text('ปิด'),
-      ),
-    ],
-  );
+    );
+  }
 }

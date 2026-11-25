@@ -51,13 +51,11 @@ class ListingRatingRepository {
     if (client == null || user == null) {
       throw StateError('ต้องเข้าสู่ระบบก่อนให้คะแนน');
     }
-    await client
-        .from('listing_ratings')
-        .upsert({
-          'listing_id': listingId,
-          'rater_id': user.id,
-          'rating': rating,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }, onConflict: 'listing_id,rater_id');
+    await client.from('listing_ratings').upsert({
+      'listing_id': listingId,
+      'rater_id': user.id,
+      'rating': rating,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'listing_id,rater_id');
   }
 }

@@ -1,6 +1,7 @@
 import 'package:room_rental/core/config/supabase_config.dart';
 import 'package:room_rental/core/utils/geo_distance.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
+import 'package:room_rental/features/listings/data/repositories/listing_query_cache.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
 
 class ListingPage {
@@ -44,33 +45,51 @@ abstract interface class ListingRepository {
 class SupabaseListingRepository implements ListingRepository {
   const SupabaseListingRepository();
 
+  static const _listingCacheAge = Duration(minutes: 5);
+  static const _advertisementCacheAge = Duration(minutes: 1);
+
   Future<List<RentalListing>> featuredAdvertisements() async {
     final client = SupabaseConfig.client;
     if (client == null) return const [];
-    final now = DateTime.now().toUtc().toIso8601String();
-    final response = await client
-        .from('listing_advertisements')
-        .select(
-          'ends_at,scraped_listings!inner(id,title,monthly_price,monthly_price_min,'
-          'monthly_price_max,currency,province,district,village,source_url,'
-          'contact_phone,property_type,thumbnail_url,map_url,latitude,longitude,'
-          'parsed_data,gallery_urls)',
-        )
-        .eq('active', true)
-        .lte('starts_at', now)
-        .gte('ends_at', now)
-        .order('priority', ascending: false)
-        .order('created_at', ascending: false)
-        .limit(20);
-    return List<Map<String, dynamic>>.from(response)
-        .where((row) => row['scraped_listings'] is Map)
-        .map(
-          (row) => _fromRow(
-            Map<String, dynamic>.from(row['scraped_listings'] as Map),
-            advertisementEndsAt: DateTime.tryParse('${row['ends_at']}'),
+    final now = DateTime.now().toUtc();
+    final cached = await ListingQueryCache.read(
+      scope: SupabaseConfig.url,
+      query: ['advertisements'],
+      maxAge: _advertisementCacheAge,
+      fetch: () async {
+        final response = await client
+            .from('listing_advertisements')
+            .select(
+              'ends_at,scraped_listings!inner(id,title,monthly_price,monthly_price_min,'
+              'monthly_price_max,currency,province,district,village,source_url,'
+              'contact_phone,property_type,thumbnail_url,map_url,latitude,longitude,'
+              'parsed_data,gallery_urls)',
+            )
+            .eq('active', true)
+            .lte('starts_at', now.toIso8601String())
+            .gte('ends_at', now.toIso8601String())
+            .order('priority', ascending: false)
+            .order('created_at', ascending: false)
+            .limit(20);
+        return {'rows': response};
+      },
+    );
+    final rows = List<Map<String, dynamic>>.from(cached['rows'] as List);
+    final displayedAt = DateTime.now();
+    final listings = <RentalListing>[];
+    for (final row in rows) {
+      final listing = row['scraped_listings'];
+      final endsAt = DateTime.tryParse('${row['ends_at']}');
+      if (listing is Map && endsAt != null && endsAt.isAfter(displayedAt)) {
+        listings.add(
+          _fromRow(
+            Map<String, dynamic>.from(listing),
+            advertisementEndsAt: endsAt,
           ),
-        )
-        .toList();
+        );
+      }
+    }
+    return listings;
   }
 
   @override
@@ -78,24 +97,43 @@ class SupabaseListingRepository implements ListingRepository {
     required double latitude,
     required double longitude,
     required double radiusMeters,
+    bool cacheForRecommendations = false,
   }) async {
     final client = SupabaseConfig.client;
     if (client == null) return const [];
-    final response = await client.rpc(
-      'search_listings_in_radius',
-      params: {
-        'center_lat': latitude,
-        'center_lng': longitude,
-        'radius_meters': radiusMeters,
-      },
-    );
+    Future<Map<String, dynamic>> fetch() async {
+      final response = await client.rpc(
+        'search_listings_in_radius',
+        params: {
+          'center_lat': latitude,
+          'center_lng': longitude,
+          'radius_meters': radiusMeters,
+        },
+      );
+      return {'rows': response};
+    }
+
+    final data = cacheForRecommendations
+        ? await ListingQueryCache.read(
+            scope: SupabaseConfig.url,
+            query: [
+              'recommendations',
+              latitude.toStringAsFixed(2),
+              longitude.toStringAsFixed(2),
+              radiusMeters,
+            ],
+            maxAge: _listingCacheAge,
+            fetch: fetch,
+          )
+        : await fetch();
     final listings =
-        List<Map<String, dynamic>>.from(response).map(_fromRow).toList()
-          ..sort((a, b) {
-            final first = a.distanceMeters ?? double.infinity;
-            final second = b.distanceMeters ?? double.infinity;
-            return first.compareTo(second);
-          });
+        List<Map<String, dynamic>>.from(
+          data['rows'] as List,
+        ).map(_fromRow).toList()..sort((a, b) {
+          final first = a.distanceMeters ?? double.infinity;
+          final second = b.distanceMeters ?? double.infinity;
+          return first.compareTo(second);
+        });
     return listings.take(30).toList();
   }
 
@@ -116,54 +154,71 @@ class SupabaseListingRepository implements ListingRepository {
         totalItems: 0,
       );
     }
-    final cutoff = DateTime.now()
-        .toUtc()
-        .subtract(const Duration(days: 365))
-        .toIso8601String();
-    var request = client
-        .from('scraped_listings')
-        .select(
-          'id,title,monthly_price,monthly_price_min,monthly_price_max,'
-          'currency,province,district,village,source_url,contact_phone,'
-          'property_type,thumbnail_url,map_url,latitude,longitude,'
-          'parsed_data,gallery_urls',
-        )
-        .eq('status', 'approved')
-        .contains('parsed_data', const {'manual_entry': true})
-        .or('source_posted_at.is.null,source_posted_at.gte.$cutoff');
-    if (province != null) request = request.eq('province', province);
-    if (district != null) request = request.eq('district', district);
-    if (village != null) request = request.eq('village', village);
-    final from = (page - 1) * pageSize;
-    final response = await request
-        .order('created_at', ascending: false)
-        .range(from, from + pageSize - 1)
-        .count();
+    final cached = await ListingQueryCache.read(
+      scope: SupabaseConfig.url,
+      query: ['page', province, district, village, page, pageSize],
+      maxAge: _listingCacheAge,
+      fetch: () async {
+        final cutoff = DateTime.now()
+            .toUtc()
+            .subtract(const Duration(days: 365))
+            .toIso8601String();
+        var request = client
+            .from('scraped_listings')
+            .select(
+              'id,title,monthly_price,monthly_price_min,monthly_price_max,'
+              'currency,province,district,village,source_url,contact_phone,'
+              'property_type,thumbnail_url,map_url,latitude,longitude,'
+              'parsed_data,gallery_urls',
+            )
+            .eq('status', 'approved')
+            .contains('parsed_data', const {'manual_entry': true})
+            .or('source_posted_at.is.null,source_posted_at.gte.$cutoff');
+        if (province != null) request = request.eq('province', province);
+        if (district != null) request = request.eq('district', district);
+        if (village != null) request = request.eq('village', village);
+        final from = (page - 1) * pageSize;
+        final response = await request
+            .order('created_at', ascending: false)
+            .range(from, from + pageSize - 1)
+            .count();
+        return {'rows': response.data, 'count': response.count};
+      },
+    );
     return ListingPage(
       items: List<Map<String, dynamic>>.from(
-        response.data,
+        cached['rows'] as List,
       ).map(_fromRow).toList(),
       page: page,
       pageSize: pageSize,
-      totalItems: response.count,
+      totalItems: cached['count'] as int,
     );
   }
 
   Future<List<RentalListing>> getByIds(List<String> ids) async {
     final client = SupabaseConfig.client;
     if (client == null || ids.isEmpty) return const [];
-    final response = await client
-        .from('scraped_listings')
-        .select(
-          'id,title,monthly_price,monthly_price_min,monthly_price_max,'
-          'currency,province,district,village,source_url,contact_phone,'
-          'property_type,thumbnail_url,map_url,latitude,longitude,'
-          'parsed_data,gallery_urls',
-        )
-        .eq('status', 'approved')
-        .inFilter('id', ids);
+    final uniqueIds = ids.toSet().toList()..sort();
+    final cached = await ListingQueryCache.read(
+      scope: SupabaseConfig.url,
+      query: ['recently-viewed', ...uniqueIds],
+      maxAge: _listingCacheAge,
+      fetch: () async {
+        final response = await client
+            .from('scraped_listings')
+            .select(
+              'id,title,monthly_price,monthly_price_min,monthly_price_max,'
+              'currency,province,district,village,source_url,contact_phone,'
+              'property_type,thumbnail_url,map_url,latitude,longitude,'
+              'parsed_data,gallery_urls',
+            )
+            .eq('status', 'approved')
+            .inFilter('id', uniqueIds);
+        return {'rows': response};
+      },
+    );
     final byId = {
-      for (final row in List<Map<String, dynamic>>.from(response))
+      for (final row in List<Map<String, dynamic>>.from(cached['rows'] as List))
         row['id'] as String: _fromRow(row),
     };
     return ids.map((id) => byId[id]).whereType<RentalListing>().toList();
@@ -178,6 +233,7 @@ class SupabaseListingRepository implements ListingRepository {
         latitude: latitude,
         longitude: longitude,
         radiusMeters: 50000,
+        cacheForRecommendations: true,
       ),
       searchPage(pageSize: 9),
     ]);
@@ -189,10 +245,8 @@ class SupabaseListingRepository implements ListingRepository {
     }
     final sorted =
         byId.values.map((item) {
-          // Listings outside the radius search arrive without a distance.
-          if (item.distanceMeters != null ||
-              item.latitude == null ||
-              item.longitude == null) {
+          // Calculate distances from the current position, including cached rooms.
+          if (item.latitude == null || item.longitude == null) {
             return item;
           }
           return item.withDistanceMeters(
@@ -229,19 +283,38 @@ class SupabaseListingRepository implements ListingRepository {
     if (client == null) {
       return const ListingPage(items: [], page: 1, pageSize: 9, totalItems: 0);
     }
-    final response = await client.rpc(
-      'search_nearest_listings',
-      params: {
-        'center_lat': latitude,
-        'center_lng': longitude,
-        'filter_province': province,
-        'filter_district': district,
-        'filter_village': village,
-        'updated_after': updatedAfter?.toUtc().toIso8601String(),
-      },
-    );
+    Future<Map<String, dynamic>> fetch() async {
+      final response = await client.rpc(
+        'search_nearest_listings',
+        params: {
+          'center_lat': latitude,
+          'center_lng': longitude,
+          'filter_province': province,
+          'filter_district': district,
+          'filter_village': village,
+          'updated_after': updatedAfter?.toUtc().toIso8601String(),
+        },
+      );
+      return {'rows': response};
+    }
+
+    final result = updatedAfter == null
+        ? await ListingQueryCache.read(
+            scope: SupabaseConfig.url,
+            query: [
+              'nearest',
+              province,
+              district,
+              village,
+              latitude.toStringAsFixed(2),
+              longitude.toStringAsFixed(2),
+            ],
+            maxAge: _listingCacheAge,
+            fetch: fetch,
+          )
+        : await fetch();
     final items = List<Map<String, dynamic>>.from(
-      response,
+      result['rows'] as List,
     ).map(_fromRow).toList();
     return ListingPage(
       items: items,

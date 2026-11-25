@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -53,7 +54,7 @@ class _DraftListingsPanelState extends State<DraftListingsPanel> {
     if (id == null || _deletingIds.contains(id)) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => AppDialog(
         title: const Text('ลบแบบร่าง?'),
         content: Text('ลบ "${_title(item)}" ถาวร ไม่สามารถกู้คืนได้'),
         actions: [
