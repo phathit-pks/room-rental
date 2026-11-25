@@ -89,8 +89,6 @@ Deno.serve(async (request) => {
       "consume_api_rate_limit",
       {
         requested_action: "resolve-google-maps-link",
-        maximum_requests: 20,
-        window_seconds: 3600,
       },
     );
     if (rateLimitError) return json({ error: "Rate limiter unavailable" }, 503);
