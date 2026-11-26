@@ -1,10 +1,15 @@
 // Supabase currently marks its WebAuthn ceremony APIs as experimental.
 // ignore_for_file: experimental_member_use
 
+import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'package:http/http.dart' as http;
+import 'package:room_rental/core/config/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'admin_passkey_entry.dart';
 
 @JS('isSecureContext')
 external bool get _isSecureContext;
@@ -40,19 +45,108 @@ bool get adminPasskeysSupported {
       api.getProperty<JSObject>('prototype'.toJS).has('toJSON');
 }
 
-Future<bool> hasAdminPasskey(GoTrueClient auth) async =>
-    (await auth.passkey.list()).isNotEmpty;
+Future<List<AdminPasskeyEntry>> listAdminPasskeys(GoTrueClient auth) async => [
+  for (final key in await auth.passkey.list())
+    (id: key.id, name: key.friendlyName ?? 'Passkey', createdAt: key.createdAt),
+];
 
 Future<AuthResponse> signInWithAdminPasskey(GoTrueClient auth) async {
+  final assertion = await _requestAssertion(auth);
+  return auth.passkey.verifyAuthentication(
+    challengeId: assertion.challengeId,
+    credential: assertion.credential,
+  );
+}
+
+Future<void> deleteAdminPasskey(GoTrueClient auth, String passkeyId) async {
+  final userId = auth.currentUser?.id;
+  if (userId == null) {
+    throw const AuthException('Sign in before deleting a passkey.');
+  }
+
+  final assertion = await _requestAssertion(
+    auth,
+    requireUserVerification: true,
+  );
+  final data = assertion.credential['response'] as Map;
+  final authenticatorData = base64Url.decode(
+    base64Url.normalize(data['authenticatorData'] as String),
+  );
+  // WebAuthn authenticator data byte 32 contains the signed user-verification bit.
+  if (authenticatorData.length < 33 || (authenticatorData[32] & 0x04) == 0) {
+    throw const AuthException(
+      'User verification is required.',
+      code: 'passkey_user_verification_required',
+    );
+  }
+
+  // Verify the assertion without changing the session in this or other tabs.
+  final response = await http
+      .post(
+        Uri.parse(
+          '${SupabaseConfig.url}/auth/v1/passkeys/authentication/verify',
+        ),
+        headers: {
+          'apikey': SupabaseConfig.publishableKey,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'challenge_id': assertion.challengeId,
+          'credential': assertion.credential,
+        }),
+      )
+      .timeout(const Duration(seconds: 15));
+  final body = jsonDecode(response.body) as Map<String, dynamic>;
+  if (response.statusCode != 200) {
+    throw AuthException(
+      'Passkey verification failed.',
+      code: (body['error_code'] ?? body['code'])?.toString(),
+      statusCode: response.statusCode.toString(),
+    );
+  }
+
+  final verified = AuthResponse.fromJson(body);
+  final temporarySession = verified.session;
+  if (temporarySession == null) {
+    throw const AuthException('Passkey verification did not yield a session.');
+  }
+  try {
+    if (verified.user?.id != userId || auth.currentUser?.id != userId) {
+      throw const AuthException(
+        'The passkey belongs to another account.',
+        code: 'passkey_account_mismatch',
+      );
+    }
+    await auth.passkey.delete(passkeyId: passkeyId);
+  } finally {
+    try {
+      await auth.admin
+          .signOut(temporarySession.accessToken, scope: SignOutScope.local)
+          .timeout(const Duration(seconds: 5));
+    } on Exception {
+      // This session was never persisted by the app.
+    }
+  }
+}
+
+Future<({String challengeId, Map<String, dynamic> credential})>
+_requestAssertion(
+  GoTrueClient auth, {
+  bool requireUserVerification = false,
+}) async {
   final credentials = _requireCredentials();
   final challenge = await auth.passkey.startAuthentication();
   final credential = await _getBrowserCredential(() {
     final publicKey = _parseRequestOptions(
-      challenge.options.jsify() as JSObject,
+      {
+            ...challenge.options,
+            if (requireUserVerification) 'userVerification': 'required',
+          }.jsify()
+          as JSObject,
     );
     return credentials.get(_CredentialOptions(publicKey: publicKey));
   });
-  return auth.passkey.verifyAuthentication(
+  return (
     challengeId: challenge.challengeId,
     credential: _serialize(credential),
   );
@@ -66,7 +160,7 @@ Future<void> registerAdminPasskey(GoTrueClient auth) async {
   }
 
   final challenge = await auth.passkey.startRegistration(
-    friendlyName: 'HaHong.la',
+    friendlyName: 'apphahong.com',
   );
   final credential = await _getBrowserCredential(() {
     final publicKey = _parseCreationOptions(

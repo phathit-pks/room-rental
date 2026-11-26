@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:room_rental/core/public_language.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/utils/safe_external_uri.dart';
 import 'package:room_rental/features/listings/data/recently_viewed_store.dart';
@@ -46,14 +48,15 @@ class ListingDetailPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _heroImage(context),
-                  if (room.galleryUrls.isNotEmpty) ...[
+                  if (!kIsWeb && room.galleryUrls.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     _gallerySection(context),
                   ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: kIsWeb ? 16 : 24),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final details = Card(
+                        margin: kIsWeb ? EdgeInsets.zero : null,
                         elevation: 0,
                         color: context.colors.surface,
                         shape: RoundedRectangleBorder(
@@ -61,7 +64,7 @@ class ListingDetailPage extends StatelessWidget {
                           side: BorderSide(color: context.colors.border),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(kIsWeb ? 20 : 24),
                           child: _details(context),
                         ),
                       );
@@ -86,6 +89,10 @@ class ListingDetailPage extends StatelessWidget {
                       );
                     },
                   ),
+                  if (kIsWeb && room.galleryUrls.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _gallerySection(context),
+                  ],
                   if (room.latitude != null && room.longitude != null) ...[
                     const SizedBox(height: 28),
                     _mapSection(context),
@@ -118,9 +125,14 @@ class ListingDetailPage extends StatelessWidget {
               ),
       ),
     );
-    return AspectRatio(
-      aspectRatio: 16 / 7,
-      child: heroTag == null ? image : Hero(tag: heroTag!, child: image),
+    final cover = heroTag == null ? image : Hero(tag: heroTag!, child: image);
+    if (!kIsWeb) return AspectRatio(aspectRatio: 16 / 7, child: cover);
+
+    return LayoutBuilder(
+      builder: (_, constraints) => SizedBox(
+        height: (constraints.maxWidth * 7 / 16).clamp(0.0, 360.0),
+        child: cover,
+      ),
     );
   }
 
@@ -219,7 +231,14 @@ class ListingDetailPage extends StatelessWidget {
         ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
       ),
       const SizedBox(height: 8),
-      ListingRatingWidget(listingId: room.id),
+      if (kIsWeb)
+        FittedBox(
+          alignment: AlignmentDirectional.centerStart,
+          fit: BoxFit.scaleDown,
+          child: ListingRatingWidget(listingId: room.id),
+        )
+      else
+        ListingRatingWidget(listingId: room.id),
       const SizedBox(height: 8),
       Text(
         _propertyTypeLabel(room.propertyType),
@@ -232,13 +251,17 @@ class ListingDetailPage extends StatelessWidget {
       _infoRow(
         context,
         Icons.location_on_outlined,
-        room.address?.trim().isNotEmpty == true ? room.address! : room.location,
+        context.publicDataLabel(
+          room.address?.trim().isNotEmpty == true
+              ? room.address!
+              : room.location,
+        ),
       ),
       if (room.description?.trim().isNotEmpty == true) ...[
         const SizedBox(height: 24),
         Text('รายละเอียด', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        Text(room.description!),
+        Text(context.publicDataLabel(room.description!)),
       ],
       if (room.amenities.isNotEmpty) ...[
         const SizedBox(height: 24),
@@ -254,7 +277,7 @@ class ListingDetailPage extends StatelessWidget {
               .map(
                 (item) => Chip(
                   avatar: const Icon(Icons.check_circle_outline, size: 18),
-                  label: Text(item),
+                  label: Text(context.publicDataLabel(item)),
                 ),
               )
               .toList(),
@@ -269,7 +292,8 @@ class ListingDetailPage extends StatelessWidget {
     final sourceUri = SafeExternalUri.https(room.sourceUrl);
     return Card(
       elevation: 0,
-      color: context.colors.background,
+      margin: kIsWeb ? EdgeInsets.zero : null,
+      color: kIsWeb ? context.colors.surface : context.colors.background,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: context.colors.border),
@@ -290,8 +314,10 @@ class ListingDetailPage extends StatelessWidget {
                 icon: const Icon(Icons.phone_outlined),
                 label: Text(room.contactPhone!),
               )
-            else
-              const Text('ยังไม่มีเบอร์โทร กรุณาติดต่อผ่านลิงก์ต้นทาง'),
+            else if (!kIsWeb)
+              const Text('ยังไม่มีเบอร์โทร กรุณาติดต่อผ่านลิงก์ต้นทาง')
+            else if (mapUri == null && sourceUri == null)
+              const Text('ยังไม่มีข้อมูลติดต่อ'),
             if (mapUri != null) ...[
               const SizedBox(height: 10),
               OutlinedButton.icon(
@@ -323,6 +349,7 @@ class ListingDetailPage extends StatelessWidget {
       if (room.submittedByName?.trim().isNotEmpty == true) ...[
         const SizedBox(height: 12),
         Card(
+          margin: kIsWeb ? EdgeInsets.zero : null,
           elevation: 0,
           color: context.colors.surface,
           shape: RoundedRectangleBorder(
@@ -356,7 +383,7 @@ class ListingDetailPage extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        room.submittedByName!,
+                        context.publicDataLabel(room.submittedByName!),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w700),

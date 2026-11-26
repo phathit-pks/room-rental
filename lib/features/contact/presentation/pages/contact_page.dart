@@ -197,7 +197,6 @@ class _ContactPageState extends State<ContactPage> {
           'manual_entry': true,
           'client_submission': true,
           'submitted_by_name': submittedByName,
-          'submitted_by_email': user.email,
           'posted_at': DateTime.now().toUtc().toIso8601String(),
           'title': _title.text.trim(),
           'property_type': _type,

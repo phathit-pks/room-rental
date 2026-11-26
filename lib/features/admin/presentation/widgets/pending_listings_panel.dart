@@ -24,12 +24,17 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
     _load();
   }
 
+  String? _submitterEmail(Map<String, dynamic> item) {
+    final submitter = item['scraped_listing_submitters'];
+    return submitter is Map ? submitter['email'] as String? : null;
+  }
+
   Future<void> _load() async {
     try {
       final rows = await Supabase.instance.client
           .from('scraped_listings')
           .select(
-            'id,title,property_type,province,district,village,thumbnail_url,contact_phone,monthly_price_min,monthly_price_max,currency,created_at,parsed_data,map_url,latitude,longitude,source_url,gallery_urls',
+            'id,title,property_type,province,district,village,thumbnail_url,contact_phone,monthly_price_min,monthly_price_max,currency,created_at,parsed_data,map_url,latitude,longitude,source_url,gallery_urls,scraped_listing_submitters(email)',
           )
           .eq('status', 'pending_review')
           .contains('parsed_data', const {'client_submission': true})
@@ -206,7 +211,7 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
                 _DetailRow(
                   icon: Icons.email_outlined,
                   label: 'อีเมล',
-                  value: parsed['submitted_by_email']?.toString() ?? '-',
+                  value: _submitterEmail(item) ?? '-',
                 ),
                 if (safeMapUri != null || safeSourceUri != null)
                   Padding(
@@ -370,7 +375,7 @@ class _PendingListingsPanelState extends State<PendingListingsPanel> {
                             item['province'],
                             item['contact_phone'],
                             parsed['submitted_by_name'],
-                            parsed['submitted_by_email'],
+                            _submitterEmail(item),
                           ]
                           .whereType<String>()
                           .where((value) => value.isNotEmpty)

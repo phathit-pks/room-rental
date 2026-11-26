@@ -20,7 +20,6 @@ class RentalListing {
     this.sourceUrl,
     this.contactPhone,
     this.submittedByName,
-    this.submittedByEmail,
     this.advertisementEndsAt,
   });
 
@@ -44,7 +43,6 @@ class RentalListing {
   final String? sourceUrl;
   final String? contactPhone;
   final String? submittedByName;
-  final String? submittedByEmail;
   final DateTime? advertisementEndsAt;
 
   RentalListing withDistanceMeters(double distanceMeters) => RentalListing(
@@ -68,7 +66,6 @@ class RentalListing {
     sourceUrl: sourceUrl,
     contactPhone: contactPhone,
     submittedByName: submittedByName,
-    submittedByEmail: submittedByEmail,
     advertisementEndsAt: advertisementEndsAt,
   );
 }

@@ -27,25 +27,6 @@ Since Supabase stopped auto-granting Data API access to new `public` tables
 `grant` statement. Any new table you add needs the same treatment, or
 supabase-js/PostgREST/GraphQL will get a "permission denied" error for it.
 
-## Gemini rental-post parser
-
-Create a Gemini API key in Google AI Studio, then keep it only as a Supabase
-secret. Never add the Gemini key to Flutter, source control, or a web build.
-
-```powershell
-supabase login
-supabase link --project-ref oqrxmwoirhbmrewrjoco
-supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-supabase functions deploy parse-rental-post
-```
-
-The Flutter app can call the deployed function through `RentalPostParser`.
-The function accepts `text`, optional `source_url`, and optional ISO-8601
-`posted_at`. It returns structured rental data under the `data` key. Missing
-information is returned as `null`; parsed results should be reviewed by an
-admin before publishing. The function also verifies the signed-in user against
-the `profiles` table and rejects non-admin callers to protect the AI quota.
-
 ## Make the first admin
 
 Create a user in Authentication first. Then run this in SQL Editor, replacing the email:

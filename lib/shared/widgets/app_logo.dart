@@ -1,22 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:room_rental/core/theme/app_colors.dart';
 
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key});
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'หาห้องเช่า',
     header: true,
-    child: Image.asset(
-      'assets/branding/source/header/logo-header.png',
+    child: SizedBox(
       width: 164,
       height: 44,
-      fit: BoxFit.contain,
-      alignment: Alignment.centerLeft,
-      filterQuality: FilterQuality.high,
-      errorBuilder: (_, _, _) => const Text(
-        'HaHong.la',
-        style: TextStyle(color: Color(0xFF0E4DE8), fontWeight: FontWeight.w800),
+      child: Row(
+        children: [
+          Image.asset(
+            'assets/branding/source/icon/logo-icon.png',
+            width: 36,
+            height: 36,
+            excludeFromSemantics: true,
+            errorBuilder: (_, _, _) => Icon(
+              Icons.home_outlined,
+              color: context.colors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: FittedBox(
+              alignment: AlignmentDirectional.centerStart,
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'apphahong.com',
+                style: TextStyle(
+                  color: context.colors.primary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     ),
   );

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart' as picker;
 import 'package:flutter/material.dart';
@@ -10,8 +8,8 @@ import 'package:room_rental/core/utils/thumbnail_compressor.dart';
 import 'package:room_rental/core/utils/thumbnail_cropper.dart';
 import 'package:room_rental/core/utils/google_maps_location.dart';
 import 'package:room_rental/features/listings/data/repositories/scraped_listing_repository.dart';
-import 'package:room_rental/features/listings/data/services/rental_post_parser.dart';
 import 'package:room_rental/features/admin/presentation/widgets/admin_advertisements_panel.dart';
+import 'package:room_rental/features/admin/presentation/widgets/admin_passkey_dialog.dart';
 import 'package:room_rental/features/admin/presentation/widgets/draft_listings_panel.dart';
 import 'package:room_rental/features/admin/presentation/widgets/pending_listings_panel.dart';
 import 'package:room_rental/features/admin/presentation/widgets/thumbnail_crop_dialog.dart';
@@ -39,9 +37,6 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
   String? province;
   String? district;
   bool signingIn = false;
-  bool _registeringPasskey = false;
-  bool? _hasPasskey;
-  bool _passkeyStatusUnavailable = false;
   bool importingListings = false;
   bool checkingAdminAccess = true;
   bool hasAdminAccess = false;
@@ -137,14 +132,9 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       final sameUser = Supabase.instance.client.auth.currentUser?.id == user.id;
       setState(() {
         hasAdminAccess = sameUser && isAdmin;
-        _hasPasskey = null;
-        _registeringPasskey = false;
-        _passkeyStatusUnavailable = false;
         checkingAdminAccess = false;
       });
-      if (hasAdminAccess) {
-        await Future.wait([_loadListingStats(), _refreshPasskeyStatus()]);
-      }
+      if (hasAdminAccess) await _loadListingStats();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -194,15 +184,9 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       passwordController.clear();
       setState(() {
         hasAdminAccess = true;
-        _hasPasskey = usePasskey ? true : null;
-        _registeringPasskey = false;
-        _passkeyStatusUnavailable = false;
         checkingAdminAccess = false;
       });
-      await Future.wait([
-        _loadListingStats(),
-        if (!usePasskey) _refreshPasskeyStatus(),
-      ]);
+      await _loadListingStats();
     } catch (error) {
       if (mounted) {
         setState(
@@ -216,63 +200,41 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
     }
   }
 
-  Future<void> _refreshPasskeyStatus() async {
-    if (!adminPasskeysSupported || !hasAdminAccess) return;
-    final auth = Supabase.instance.client.auth;
-    final userId = auth.currentUser?.id;
-    if (userId == null) return;
-
-    setState(() {
-      _hasPasskey = null;
-      _passkeyStatusUnavailable = false;
-    });
-    try {
-      final registered = await hasAdminPasskey(auth);
-      if (!mounted || auth.currentUser?.id != userId) return;
-      setState(() => _hasPasskey = registered);
-    } catch (_) {
-      if (!mounted || auth.currentUser?.id != userId) return;
-      setState(() => _passkeyStatusUnavailable = true);
-    }
-  }
-
-  Future<void> _registerPasskey() async {
-    if (!hasAdminAccess || _registeringPasskey || _hasPasskey != false) return;
+  Future<void> _openPasskeyMenu() async {
     final auth = Supabase.instance.client.auth;
     final user = auth.currentUser;
-    if (user == null) return;
+    if (!hasAdminAccess || user == null) return;
 
-    setState(() => _registeringPasskey = true);
-
-    String message;
-    var registrationStarted = false;
-    try {
-      final password = await _confirmPasskeyPassword();
-      if (password == null || !mounted || auth.currentUser?.id != user.id) {
-        return;
-      }
-      await verifyAdminPassword(user, password);
-      if (!mounted || auth.currentUser?.id != user.id) return;
-
-      registrationStarted = true;
-      await registerAdminPasskey(auth);
-      if (!mounted || auth.currentUser?.id != user.id) return;
-      setState(() => _hasPasskey = true);
-      message = 'ลงทะเบียน Passkey แล้ว';
-    } catch (error) {
-      message = _passkeyError(error, 'ลงทะเบียน Passkey ไม่สำเร็จ');
-    } finally {
-      if (mounted && auth.currentUser?.id == user.id) {
-        setState(() => _registeringPasskey = false);
+    void verifyAccount() {
+      if (!mounted || !hasAdminAccess || auth.currentUser?.id != user.id) {
+        throw const AuthException('The Admin session changed.');
       }
     }
-    if (!mounted || auth.currentUser?.id != user.id) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-    if (registrationStarted && _hasPasskey != true) {
-      await _refreshPasskeyStatus();
-    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AdminPasskeyDialog(
+        load: () async {
+          verifyAccount();
+          return listAdminPasskeys(auth);
+        },
+        register: () async {
+          verifyAccount();
+          final password = await _confirmPasskeyPassword();
+          if (password == null) return false;
+          verifyAccount();
+          await verifyAdminPassword(user, password);
+          verifyAccount();
+          await registerAdminPasskey(auth);
+          return true;
+        },
+        delete: (id) {
+          verifyAccount();
+          return deleteAdminPasskey(auth, id);
+        },
+        errorMessage: _passkeyError,
+      ),
+    );
   }
 
   Future<String?> _confirmPasskeyPassword() {
@@ -335,6 +297,10 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
       'admin_reauth_rate_limited' =>
         'ลองยืนยันรหัสผ่านหลายครั้ง กรุณารอสักครู่แล้วลองใหม่',
       'admin_reauth_unavailable' => 'ยืนยันรหัสผ่านไม่ได้ในขณะนี้ กรุณาลองใหม่',
+      'passkey_account_mismatch' =>
+        'กรุณาเลือก Passkey ของบัญชี Admin ที่กำลังใช้งาน',
+      'passkey_user_verification_required' =>
+        'ต้องยืนยันตัวตนบนอุปกรณ์ก่อนจึงจะลบ Passkey ได้',
       'passkey_disabled' => 'กรุณาเปิด Passkey authentication ใน Supabase ก่อน',
       'browser_SecurityError' =>
         'Chrome ตรวจสอบโดเมนไม่ผ่าน โปรดตรวจว่า URL ที่เปิดตรงกับ RP ID และ Origins ใน Supabase',
@@ -358,13 +324,6 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
         '$fallback (Supabase: $code)',
       _ => '$fallback กรุณาลองอีกครั้ง',
     };
-  }
-
-  Future<void> _openAiParser() async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => const _AiParserDialog(),
-    );
   }
 
   Future<void> _openAddApartment() async {
@@ -1007,83 +966,65 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
         ),
       );
     }
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final compact = screenWidth < 680;
+    final statWidth = compact && screenWidth >= 360
+        ? (screenWidth - 44) / 2
+        : (compact ? screenWidth - 32 : 210.0);
+
+    Future<void> signOut() async {
+      await Supabase.instance.client.auth.signOut();
+      if (!mounted) return;
+      setState(() {
+        hasAdminAccess = false;
+        checkingAdminAccess = false;
+      });
+    }
+
+    void openWebsite() {
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+    }
+
     return Scaffold(
       backgroundColor: context.colors.background,
       appBar: AppBar(
-        title: const Text('Admin • จัดการพื้นที่'),
-        bottom: _hasPasskey == true
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(36),
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline,
-                        size: 18,
-                        color: context.colors.success,
-                      ),
-                      const SizedBox(width: 6),
-                      const Text('ลงทะเบียน Passkey แล้ว'),
-                    ],
-                  ),
-                ),
-              )
-            : null,
+        title: Text(
+          compact ? 'จัดการพื้นที่' : 'Admin • จัดการพื้นที่',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
-          if (adminPasskeysSupported && _hasPasskey != true)
-            if (_passkeyStatusUnavailable)
-              IconButton(
-                tooltip: 'ลองตรวจสถานะ Passkey อีกครั้ง',
-                onPressed: _refreshPasskeyStatus,
-                icon: const Icon(Icons.refresh_rounded),
-              )
-            else if (MediaQuery.sizeOf(context).width >= 720)
-              TextButton.icon(
-                onPressed: _hasPasskey == false && !_registeringPasskey
-                    ? _registerPasskey
-                    : null,
-                icon: const Icon(Icons.fingerprint),
-                label: Text(
-                  _hasPasskey == null
-                      ? 'กำลังตรวจ Passkey…'
-                      : 'ลงทะเบียน Passkey',
-                ),
-              )
-            else
-              IconButton(
-                tooltip: _hasPasskey == null
-                    ? 'กำลังตรวจ Passkey…'
-                    : 'ลงทะเบียน Passkey',
-                onPressed: _hasPasskey == false && !_registeringPasskey
-                    ? _registerPasskey
-                    : null,
-                icon: const Icon(Icons.fingerprint),
-              ),
-          TextButton.icon(
-            onPressed: () async {
-              await Supabase.instance.client.auth.signOut();
-              if (mounted) {
-                setState(() {
-                  hasAdminAccess = false;
-                  checkingAdminAccess = false;
-                });
-              }
-            },
-            icon: const Icon(Icons.logout),
-            label: const Text('ออกจากระบบ'),
-          ),
-          TextButton.icon(
-            onPressed: () => Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/',
-              (route) => false,
+          if (adminPasskeysSupported)
+            IconButton(
+              tooltip: 'จัดการ Passkey',
+              onPressed: _openPasskeyMenu,
+              icon: const Icon(Icons.fingerprint),
             ),
-            icon: const Icon(Icons.visibility_outlined),
-            label: const Text('ดูหน้าเว็บไซต์'),
-          ),
-          const SizedBox(width: 16),
+          if (compact)
+            PopupMenuButton<VoidCallback>(
+              tooltip: 'เมนูผู้ดูแล',
+              onSelected: (action) => action(),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: openWebsite,
+                  child: const Text('ดูหน้าเว็บไซต์'),
+                ),
+                PopupMenuItem(value: signOut, child: const Text('ออกจากระบบ')),
+              ],
+            )
+          else ...[
+            TextButton.icon(
+              onPressed: signOut,
+              icon: const Icon(Icons.logout),
+              label: const Text('ออกจากระบบ'),
+            ),
+            TextButton.icon(
+              onPressed: openWebsite,
+              icon: const Icon(Icons.visibility_outlined),
+              label: const Text('ดูหน้าเว็บไซต์'),
+            ),
+            const SizedBox(width: 16),
+          ],
         ],
       ),
       body: AnimatedBuilder(
@@ -1104,68 +1045,84 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
               ? <String>[]
               : store.data[province]![district]!;
 
-          return ListView(
-            padding: const EdgeInsets.all(24),
+          final overviewTitle = Text(
+            'ภาพรวมข้อมูล',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          );
+          final overviewActions = Wrap(
+            spacing: 12,
+            runSpacing: 8,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'ภาพรวมข้อมูล',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _importExcel,
-                    icon: const Icon(Icons.upload_file_outlined),
-                    label: const Text('นำเข้าพื้นที่ Excel'),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: importingListings ? null : _importListingExcels,
-                    icon: importingListings
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.file_upload_outlined),
-                    label: Text(
-                      importingListings
-                          ? 'กำลังนำเข้า...'
-                          : 'นำเข้าที่พัก Excel',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    onPressed: _openAiParser,
-                    icon: const Icon(Icons.auto_awesome_outlined),
-                    label: const Text('AI แยกประกาศ'),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    onPressed: _openAddApartment,
-                    icon: const Icon(Icons.add_home_work_outlined),
-                    label: const Text('เพิ่มที่พัก'),
-                  ),
-                ],
+              OutlinedButton.icon(
+                onPressed: _importExcel,
+                icon: const Icon(Icons.upload_file_outlined),
+                label: const Text('นำเข้าพื้นที่ Excel'),
               ),
+              OutlinedButton.icon(
+                onPressed: importingListings ? null : _importListingExcels,
+                icon: importingListings
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.file_upload_outlined),
+                label: Text(
+                  importingListings ? 'กำลังนำเข้า...' : 'นำเข้าที่พัก Excel',
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _openAddApartment,
+                icon: const Icon(Icons.add_home_work_outlined),
+                label: const Text('เพิ่มที่พัก'),
+              ),
+            ],
+          );
+
+          return ListView(
+            padding: EdgeInsets.all(compact ? 16 : 24),
+            children: [
+              if (screenWidth < 1000) ...[
+                overviewTitle,
+                const SizedBox(height: 12),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: overviewActions,
+                ),
+              ] else
+                Row(
+                  children: [
+                    Expanded(child: overviewTitle),
+                    const SizedBox(width: 24),
+                    Flexible(
+                      flex: 3,
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: overviewActions,
+                      ),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 16),
               Wrap(
-                spacing: 16,
-                runSpacing: 16,
+                spacing: compact ? 12 : 16,
+                runSpacing: compact ? 12 : 16,
                 children: [
                   _StatCard(
+                    width: statWidth,
                     icon: Icons.map_outlined,
                     label: 'แขวง',
                     value: store.data.length,
                   ),
                   _StatCard(
+                    width: statWidth,
                     icon: Icons.location_city_outlined,
                     label: 'เมือง',
                     value: store.districtCount,
                   ),
                   _StatCard(
+                    width: statWidth,
                     icon: Icons.home_outlined,
                     label: 'บ้าน',
                     value: store.villageCount,
@@ -1194,22 +1151,25 @@ class _AdminLocationsPageState extends State<AdminLocationsPage> {
               ),
               const SizedBox(height: 16),
               Wrap(
-                spacing: 16,
-                runSpacing: 16,
+                spacing: compact ? 12 : 16,
+                runSpacing: compact ? 12 : 16,
                 children: [
                   _StatCard(
+                    width: statWidth,
                     icon: Icons.meeting_room_outlined,
                     label: 'ห้องพักทั้งหมด',
                     value: totalListings,
                     loading: loadingListingStats,
                   ),
                   _StatCard(
+                    width: statWidth,
                     icon: Icons.check_circle_outline,
                     label: 'เผยแพร่แล้ว',
                     value: publishedListings,
                     loading: loadingListingStats,
                   ),
                   _StatCard(
+                    width: statWidth,
                     icon: Icons.hourglass_empty_outlined,
                     label: 'รอตรวจสอบ',
                     value: pendingListings,
@@ -2168,173 +2128,15 @@ class _AddApartmentDialogState extends State<_AddApartmentDialog> {
   }
 }
 
-class _AiParserDialog extends StatefulWidget {
-  const _AiParserDialog();
-
-  @override
-  State<_AiParserDialog> createState() => _AiParserDialogState();
-}
-
-class _AiParserDialogState extends State<_AiParserDialog> {
-  final postController = TextEditingController();
-  final sourceController = TextEditingController();
-  final parser = const RentalPostParser();
-  final repository = const ScrapedListingRepository();
-  Map<String, dynamic>? result;
-  String? error;
-  bool loading = false;
-  bool saving = false;
-  bool saved = false;
-
-  @override
-  void dispose() {
-    postController.dispose();
-    sourceController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveDraft() async {
-    final parsed = result;
-    if (parsed == null) return;
-    setState(() {
-      saving = true;
-      error = null;
-    });
-    try {
-      await repository.saveDraft(
-        rawText: postController.text,
-        sourceUrl: sourceController.text,
-        parsedData: parsed,
-      );
-      if (mounted) setState(() => saved = true);
-    } catch (exception) {
-      if (mounted) setState(() => error = exception.toString());
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
-  Future<void> _parse() async {
-    if (postController.text.trim().isEmpty) {
-      setState(() => error = 'กรุณาวางข้อความประกาศ');
-      return;
-    }
-    setState(() {
-      loading = true;
-      error = null;
-      result = null;
-      saved = false;
-    });
-    try {
-      final parsed = await parser.parse(
-        text: postController.text,
-        sourceUrl: sourceController.text,
-      );
-      if (mounted) setState(() => result = parsed);
-    } catch (exception) {
-      if (mounted) setState(() => error = exception.toString());
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AppDialog(
-    closeEnabled: !loading && !saving,
-    icon: const Icon(Icons.auto_awesome_outlined),
-    title: const Text('AI แยกข้อมูลประกาศ'),
-    content: SizedBox(
-      width: 680,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: postController,
-              minLines: 6,
-              maxLines: 12,
-              decoration: const InputDecoration(
-                labelText: 'ข้อความประกาศ',
-                hintText: 'วางข้อความประกาศภาษาไทย ภาษาลาว หรืออังกฤษที่นี่',
-                alignLabelWithHint: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: sourceController,
-              decoration: const InputDecoration(
-                labelText: 'ลิงก์โพสต์ต้นทาง (ถ้ามี)',
-                prefixIcon: Icon(Icons.link),
-              ),
-            ),
-            if (error != null) ...[
-              const SizedBox(height: 12),
-              Text(error!, style: TextStyle(color: context.colors.danger)),
-            ],
-            if (result != null) ...[
-              const SizedBox(height: 18),
-              const Text(
-                'ผลลัพธ์ (ตรวจสอบก่อนบันทึก)',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              SelectableText(
-                const JsonEncoder.withIndent('  ').convert(result),
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-              if (saved) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'บันทึกและเผยแพร่แล้ว',
-                  style: TextStyle(
-                    color: context.colors.success,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ],
-          ],
-        ),
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: loading || saving ? null : () => Navigator.pop(context),
-        child: const Text('ปิด'),
-      ),
-      if (result != null)
-        OutlinedButton.icon(
-          onPressed: loading || saving || saved ? null : _saveDraft,
-          icon: saving
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save_outlined),
-          label: Text(saving ? 'กำลังบันทึก...' : 'บันทึกและเผยแพร่'),
-        ),
-      FilledButton.icon(
-        onPressed: loading || saving ? null : _parse,
-        icon: loading
-            ? const SizedBox.square(
-                dimension: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.auto_awesome),
-        label: Text(loading ? 'กำลังวิเคราะห์...' : 'วิเคราะห์'),
-      ),
-    ],
-  );
-}
-
 class _StatCard extends StatelessWidget {
   const _StatCard({
+    required this.width,
     required this.icon,
     required this.label,
     required this.value,
     this.loading = false,
   });
+  final double width;
   final IconData icon;
   final String label;
   final int? value;
@@ -2342,8 +2144,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 210,
-    padding: const EdgeInsets.all(20),
+    width: width,
+    padding: EdgeInsets.all(width < 210 ? 12 : 20),
     decoration: BoxDecoration(
       color: context.colors.surface,
       borderRadius: BorderRadius.circular(18),
@@ -2351,24 +2153,26 @@ class _StatCard extends StatelessWidget {
     child: Row(
       children: [
         CircleAvatar(child: Icon(icon)),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            loading
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    '${value ?? '-'}',
-                    style: const TextStyle(
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
+        SizedBox(width: width < 210 ? 8 : 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              loading
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      '${value ?? '-'}',
+                      style: const TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-            Text(label, style: TextStyle(color: context.colors.textMuted)),
-          ],
+              Text(label, style: TextStyle(color: context.colors.textMuted)),
+            ],
+          ),
         ),
       ],
     ),

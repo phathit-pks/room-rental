@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:room_rental/core/theme/app_colors.dart';
 
@@ -13,15 +14,12 @@ class PrivacyConsentGate extends StatefulWidget {
 }
 
 class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
-  static const _consentVersion = 'privacy-v2';
+  static const _consentVersion = 'privacy-v3';
   static const _versionKey = 'privacy_consent_version';
-  static const _policyKey = 'privacy_policy_accepted';
-  static const _dataKey = 'voluntary_data_consent';
 
   bool _loading = true;
   bool _accepted = false;
   bool _policyAccepted = false;
-  bool _dataAccepted = false;
   bool _saving = false;
 
   @override
@@ -31,32 +29,34 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
   }
 
   Future<void> _loadConsent() async {
-    final preferences = await SharedPreferences.getInstance();
-    final accepted =
-        preferences.getString(_versionKey) == _consentVersion &&
-        (preferences.getBool(_policyKey) ?? false) &&
-        (preferences.getBool(_dataKey) ?? false);
-    if (mounted) {
-      setState(() {
-        _accepted = accepted;
-        _loading = false;
-      });
+    var accepted = false;
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      accepted = preferences.getString(_versionKey) == _consentVersion;
+    } catch (error) {
+      debugPrint('Could not read the saved privacy policy version: $error');
     }
+    if (!mounted) return;
+    setState(() {
+      _accepted = accepted;
+      _loading = false;
+    });
   }
 
   Future<void> _accept() async {
-    if (!_policyAccepted || !_dataAccepted || _saving) return;
+    if (!_policyAccepted || _saving) return;
     setState(() => _saving = true);
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_versionKey, _consentVersion);
-    await preferences.setBool(_policyKey, true);
-    await preferences.setBool(_dataKey, true);
-    if (mounted) {
-      setState(() {
-        _accepted = true;
-        _saving = false;
-      });
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(_versionKey, _consentVersion);
+    } catch (error) {
+      debugPrint('Could not save the privacy policy version: $error');
     }
+    if (!mounted) return;
+    setState(() {
+      _accepted = true;
+      _saving = false;
+    });
   }
 
   @override
@@ -139,7 +139,7 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                             icon: Icons.home_work_outlined,
                             title: 'วัตถุประสงค์ของเว็บไซต์',
                             text:
-                                'เว็บไซต์นี้จัดทำขึ้นเพื่อช่วยให้ผู้ใช้งานค้นหาและเปรียบเทียบข้อมูลห้องแถว อพาร์ตเมนต์ บ้านเช่า และคอนโดได้สะดวกขึ้น เว็บไซต์เป็นเพียงช่องทางแสดงข้อมูลและเชื่อมต่อผู้สนใจกับผู้ประกาศเท่านั้น ไม่ใช่นายหน้า คู่สัญญา หรือระบบรับจองและชำระเงิน',
+                                'apphahong.com ช่วยให้ผู้ใช้รู้ว่าบริเวณที่สนใจมีห้องเช่าหรือที่พักให้เช่าหรือไม่ ผู้ใช้ค้นหาตามพื้นที่หรือใช้ตำแหน่งปัจจุบันเมื่ออนุญาต แล้วติดต่อเจ้าของห้องหรือผู้ลงประกาศโดยตรง การนัดดูห้อง การจอง การทำสัญญา และการชำระเงินเป็นเรื่องที่ผู้ใช้ตกลงกับผู้ให้เช่าโดยตรง',
                           ),
                           SizedBox(height: 16),
                           const _PolicySection(
@@ -153,29 +153,31 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                             icon: Icons.storage_outlined,
                             title: 'ข้อมูลที่ผู้ใช้ส่งให้เว็บไซต์',
                             text:
-                                'เว็บไซต์อาจจัดเก็บเฉพาะข้อมูลที่ผู้ใช้กรอกหรืออัปโหลดโดยสมัครใจ เช่น ชื่อ เบอร์โทร อีเมล รายละเอียดประกาศ รูปภาพ และพิกัด เพื่อใช้ติดต่อกลับ แสดงประกาศ ดูแลความปลอดภัย และปรับปรุงบริการ Browser อาจขอใช้ตำแหน่งปัจจุบันเพื่อจัดอันดับห้องแนะนำใกล้ผู้ใช้ โดยใช้ชั่วคราวระหว่างการค้นหาและไม่บันทึกพิกัดผู้ใช้ลงฐานข้อมูล ขณะนี้เราไม่มีระบบติดตามพฤติกรรมหรือเก็บข้อมูลเพื่อโฆษณาโดยอัตโนมัติ',
+                                'ประกาศที่ผ่านการอนุมัติอาจแสดงข้อมูลที่ผู้ลงประกาศส่งเพื่อเผยแพร่ เช่น รูปที่พัก ทำเล ชื่อผู้ลงประกาศ และช่องทางติดต่อ อีเมลจากบัญชีที่ใช้ส่งประกาศเก็บแยกไว้สำหรับผู้ดูแล ตำแหน่งปัจจุบันจะใช้ระหว่างการค้นหาเมื่อผู้ใช้อนุญาต และไม่แสดงให้ผู้ใช้รายอื่นเห็น เว็บไซต์อาจใช้ Google Analytics เพื่อวัดการเข้าชมหน้าสาธารณะ',
                           ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 12),
+                          TextButton.icon(
+                            onPressed: () => launchUrl(
+                              Uri.base.resolve('/th/privacy.html'),
+                              webOnlyWindowName: '_blank',
+                            ),
+                            icon: const Icon(Icons.open_in_new),
+                            label: const Text(
+                              'อ่านนโยบายความเป็นส่วนตัวฉบับเต็ม',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           _ConsentCheckbox(
                             value: _policyAccepted,
                             title:
-                                'ฉันได้อ่านและยอมรับนโยบายการใช้งาน รวมถึงข้อจำกัดความรับผิดชอบ',
+                                'ฉันได้อ่านและยอมรับนโยบายการใช้งานและความเป็นส่วนตัว',
                             onChanged: (value) => setState(
                               () => _policyAccepted = value ?? false,
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          _ConsentCheckbox(
-                            value: _dataAccepted,
-                            title:
-                                'ฉันยินยอมให้เว็บไซต์จัดเก็บและใช้ข้อมูลที่ฉันส่งโดยสมัครใจตามวัตถุประสงค์ข้างต้น',
-                            onChanged: (value) =>
-                                setState(() => _dataAccepted = value ?? false),
-                          ),
                           const SizedBox(height: 22),
                           FilledButton.icon(
-                            onPressed:
-                                _policyAccepted && _dataAccepted && !_saving
+                            onPressed: _policyAccepted && !_saving
                                 ? _accept
                                 : null,
                             icon: _saving
@@ -197,7 +199,7 @@ class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'การยอมรับจะถูกจำไว้เฉพาะใน Browser เครื่องนี้ และสามารถล้างได้ด้วยการล้างข้อมูลเว็บไซต์',
+                            'เบราว์เซอร์จะจดจำการยอมรับหากอนุญาตให้จัดเก็บข้อมูลเว็บไซต์',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: context.colors.textMuted,

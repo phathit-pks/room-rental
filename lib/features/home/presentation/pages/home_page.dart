@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:room_rental/core/public_language.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/core/theme/theme_store.dart';
 import 'package:room_rental/core/utils/geo_distance.dart';
@@ -35,6 +36,7 @@ class _HomePageState extends State<HomePage> {
   final _searchSectionKey = GlobalKey();
   late Future<ListingPage> _listings;
   late Future<List<RentalListing>> _advertisements;
+  PublicLanguage _language = PublicLanguage.thai;
   bool _isSearchMode = false;
   bool _usingCurrentLocation = false;
   bool _searchInProgress = false;
@@ -251,46 +253,51 @@ class _HomePageState extends State<HomePage> {
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS);
 
-    return Scaffold(
-      backgroundColor: context.colors.background,
-      drawer: showMobileMenu
-          ? _HomeMenu(onSearchPressed: _scrollToSearch)
-          : null,
-      body: _InteractivePageBackground(
-        child: SafeArea(
-          child: SelectionArea(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _NavigationBar(
-                    onSearchPressed: _scrollToSearch,
-                    showMobileMenu: showMobileMenu,
+    return PublicLanguageScope(
+      language: _language,
+      child: Scaffold(
+        backgroundColor: context.colors.background,
+        drawer: showMobileMenu
+            ? _HomeMenu(onSearchPressed: _scrollToSearch)
+            : null,
+        body: _InteractivePageBackground(
+          child: SafeArea(
+            child: SelectionArea(
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _NavigationBar(
+                      onSearchPressed: _scrollToSearch,
+                      showMobileMenu: showMobileMenu,
+                      onLanguageChanged: (value) =>
+                          setState(() => _language = value),
+                    ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: _HeroSection(
-                    key: _searchSectionKey,
-                    onSearch: _search,
-                    onClear: _clearSearch,
-                    advertisements: _advertisements,
+                  SliverToBoxAdapter(
+                    child: _HeroSection(
+                      key: _searchSectionKey,
+                      onSearch: _search,
+                      onClear: _clearSearch,
+                      advertisements: _advertisements,
+                    ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: _FeaturedSection(
-                    listings: _listings,
-                    isSearchMode: _isSearchMode,
-                    usingCurrentLocation: _usingCurrentLocation,
-                    onPageChanged: _changePage,
-                    onSearchPressed: _scrollToSearch,
+                  SliverToBoxAdapter(
+                    child: _FeaturedSection(
+                      listings: _listings,
+                      isSearchMode: _isSearchMode,
+                      usingCurrentLocation: _usingCurrentLocation,
+                      onPageChanged: _changePage,
+                      onSearchPressed: _scrollToSearch,
+                    ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: _RecentlyViewedSection(repository: _repository),
-                ),
-                const SliverToBoxAdapter(child: _HowItWorksSection()),
-                const SliverToBoxAdapter(child: _CallToAction()),
-                const SliverToBoxAdapter(child: _Footer()),
-              ],
+                  SliverToBoxAdapter(
+                    child: _RecentlyViewedSection(repository: _repository),
+                  ),
+                  const SliverToBoxAdapter(child: _HowItWorksSection()),
+                  const SliverToBoxAdapter(child: _CallToAction()),
+                  const SliverToBoxAdapter(child: _Footer()),
+                ],
+              ),
             ),
           ),
         ),
@@ -492,7 +499,7 @@ class _HomeMenu extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.search_rounded),
-              title: const Text('ค้นหาห้อง'),
+              title: Text(context.publicText('ค้นหาห้อง', 'ຊອກຫາຫ້ອງ')),
               onTap: () {
                 scaffold.closeDrawer();
                 onSearchPressed();
@@ -510,7 +517,7 @@ class _HomeMenu extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.add_home_outlined),
-              title: const Text('ลงประกาศ'),
+              title: Text(context.publicText('ลงประกาศ', 'ລົງປະກາດ')),
               onTap: () {
                 scaffold.closeDrawer();
                 navigator.pushNamed('/contact');
@@ -533,10 +540,12 @@ class _NavigationBar extends StatelessWidget {
   const _NavigationBar({
     required this.onSearchPressed,
     required this.showMobileMenu,
+    required this.onLanguageChanged,
   });
 
   final VoidCallback onSearchPressed;
   final bool showMobileMenu;
+  final ValueChanged<PublicLanguage> onLanguageChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -545,7 +554,9 @@ class _NavigationBar extends StatelessWidget {
       child: _PageWidth(
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: showMobileMenu ? 12 : 24,
+            horizontal: showMobileMenu || MediaQuery.sizeOf(context).width < 430
+                ? 12
+                : 24,
             vertical: 16,
           ),
           child: Row(
@@ -563,15 +574,62 @@ class _NavigationBar extends StatelessWidget {
                   MediaQuery.sizeOf(context).width > 920) ...[
                 TextButton(
                   onPressed: onSearchPressed,
-                  child: const Text('ค้นหาห้อง'),
+                  child: Text(context.publicText('ค้นหาห้อง', 'ຊອກຫາຫ້ອງ')),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pushNamed(context, '/contact'),
-                  child: const Text('ลงประกาศ'),
+                  child: Text(context.publicText('ลงประกาศ', 'ລົງປະກາດ')),
                 ),
-                TextButton(onPressed: () {}, child: const Text('เกี่ยวกับเรา')),
+                TextButton(
+                  onPressed: () => launchUrl(
+                    Uri.base.resolve(
+                      context.usesLao ? '/lo/about.html' : '/th/about.html',
+                    ),
+                    webOnlyWindowName: '_self',
+                  ),
+                  child: Text(
+                    context.publicText('เกี่ยวกับเรา', 'ກ່ຽວກັບພວກເຮົາ'),
+                  ),
+                ),
+                if (kIsWeb)
+                  TextButton(
+                    onPressed: () => launchUrl(
+                      Uri.base.resolve(
+                        context.usesLao
+                            ? '/lo/contact.html'
+                            : '/th/contact.html',
+                      ),
+                      webOnlyWindowName: '_self',
+                    ),
+                    child: Text(
+                      context.publicText('ติดต่อเรา', 'ຕິດຕໍ່ພວກເຮົາ'),
+                    ),
+                  ),
                 const SizedBox(width: 12),
               ],
+              if (kIsWeb)
+                PopupMenuButton<PublicLanguage>(
+                  tooltip: context.publicText('เลือกภาษา', 'ເລືອກພາສາ'),
+                  initialValue: PublicLanguageScope.of(context),
+                  onSelected: onLanguageChanged,
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: PublicLanguage.thai,
+                      child: Text('TH · ภาษาไทย'),
+                    ),
+                    PopupMenuItem(
+                      value: PublicLanguage.lao,
+                      child: Text('LA · ພາສາລາວ'),
+                    ),
+                  ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 12,
+                    ),
+                    child: Text(context.usesLao ? 'LA ▾' : 'TH ▾'),
+                  ),
+                ),
               if (!showMobileMenu) ...[
                 const _ThemeToggle(),
                 const SizedBox(width: 12),
@@ -676,7 +734,10 @@ class _PromotionBanner extends StatelessWidget {
                 : CrossAxisAlignment.start,
             children: [
               Text(
-                'มีห้องว่างให้เช่า?',
+                context.publicText(
+                  'มีห้องว่างให้เช่า?',
+                  'ມີຫ້ອງຫວ່າງໃຫ້ເຊົ່າບໍ?',
+                ),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: context.colors.onPrimary,
@@ -686,7 +747,10 @@ class _PromotionBanner extends StatelessWidget {
               ),
               const SizedBox(height: 7),
               Text(
-                'โปรโมตประกาศของคุณให้ผู้เช่าเห็นก่อนใคร',
+                context.publicText(
+                  'โปรโมตประกาศของคุณให้ผู้เช่าเห็นก่อนใคร',
+                  'ໂປຣໂມດປະກາດໃຫ້ຜູ້ເຊົ່າເຫັນກ່ອນ',
+                ),
                 textAlign: compact ? TextAlign.center : TextAlign.left,
                 style: const TextStyle(
                   // Fixed light tint: this banner stays dark in both themes.
@@ -699,7 +763,7 @@ class _PromotionBanner extends StatelessWidget {
           final action = FilledButton.icon(
             onPressed: () => Navigator.pushNamed(context, '/contact'),
             icon: const Icon(Icons.add_home_work_outlined),
-            label: const Text('ลงประกาศ'),
+            label: Text(context.publicText('ลงประกาศ', 'ລົງປະກາດ')),
             style: FilledButton.styleFrom(
               backgroundColor: context.colors.surface,
               foregroundColor: context.colors.primary,
@@ -792,23 +856,35 @@ class _SearchBoxState extends State<_SearchBox> {
       _province,
       _district,
       _village,
-    ].whereType<String>().join(' • ');
+    ].whereType<String>().map(context.publicDataLabel).join(' • ');
     if (selections.isEmpty) {
       ScaffoldMessenger.of(context).clearSnackBars();
       await showNoticeDialog(
         context,
         icon: Icons.location_on_rounded,
-        title: 'เลือกพื้นที่ก่อนค้นหา',
-        message:
-            'กรุณาเลือกแขวง เมือง หรือบ้านที่ต้องการค้นหาอย่างน้อย 1 รายการ',
+        title: context.publicText(
+          'เลือกพื้นที่ก่อนค้นหา',
+          'ເລືອກພື້ນທີ່ກ່ອນຊອກຫາ',
+        ),
+        message: context.publicText(
+          'กรุณาเลือกแขวง เมือง หรือบ้านที่ต้องการค้นหาอย่างน้อย 1 รายการ',
+          'ກະລຸນາເລືອກແຂວງ, ເມືອງ ຫຼືບ້ານຢ່າງໜ້ອຍ 1 ລາຍການ',
+        ),
       );
       return;
     }
     setState(() => _searching = true);
     ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('กำลังค้นหาห้องใน $selections')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          context.publicText(
+            'กำลังค้นหาห้องใน $selections',
+            'ກຳລັງຊອກຫາຫ້ອງໃນ $selections',
+          ),
+        ),
+      ),
+    );
     try {
       await widget.onSearch(_province, _district, _village);
     } finally {
@@ -827,8 +903,11 @@ class _SearchBoxState extends State<_SearchBox> {
     showNoticeDialog(
       context,
       icon: Icons.filter_alt_off_rounded,
-      title: 'ล้างตัวกรองแล้ว',
-      message: 'แสดงห้องแนะนำทั้งหมดอีกครั้ง',
+      title: context.publicText('ล้างตัวกรองแล้ว', 'ລ້າງຕົວກອງແລ້ວ'),
+      message: context.publicText(
+        'แสดงห้องแนะนำทั้งหมดอีกครั้ง',
+        'ສະແດງຫ້ອງແນະນຳທັງໝົດອີກຄັ້ງ',
+      ),
     );
   }
 
@@ -856,8 +935,14 @@ class _SearchBoxState extends State<_SearchBox> {
               final compact = constraints.maxWidth < 700;
               final filters = [
                 SearchableSelectField(
+                  displayLabel: context.publicDataLabel,
+                  searchHint: context.publicText(
+                    'พิมพ์เพื่อค้นหา',
+                    'ພິມເພື່ອຊອກຫາ',
+                  ),
+                  emptyLabel: context.publicText('ไม่พบรายการ', 'ບໍ່ພົບລາຍການ'),
                   key: const ValueKey('province'),
-                  label: 'แขวง',
+                  label: context.publicText('แขวง', 'ແຂວງ'),
                   initialValue: _province,
                   items: _locations.keys.toList(),
                   icon: Icons.map_outlined,
@@ -868,8 +953,14 @@ class _SearchBoxState extends State<_SearchBox> {
                   }),
                 ),
                 SearchableSelectField(
+                  displayLabel: context.publicDataLabel,
+                  searchHint: context.publicText(
+                    'พิมพ์เพื่อค้นหา',
+                    'ພິມເພື່ອຊອກຫາ',
+                  ),
+                  emptyLabel: context.publicText('ไม่พบรายการ', 'ບໍ່ພົບລາຍການ'),
                   key: const ValueKey('district'),
-                  label: 'เมือง',
+                  label: context.publicText('เมือง', 'ເມືອງ'),
                   initialValue: _district,
                   items: _districts,
                   icon: Icons.location_city_outlined,
@@ -881,8 +972,14 @@ class _SearchBoxState extends State<_SearchBox> {
                         }),
                 ),
                 SearchableSelectField(
+                  displayLabel: context.publicDataLabel,
+                  searchHint: context.publicText(
+                    'พิมพ์เพื่อค้นหา',
+                    'ພິມເພື່ອຊອກຫາ',
+                  ),
+                  emptyLabel: context.publicText('ไม่พบรายการ', 'ບໍ່ພົບລາຍການ'),
                   key: const ValueKey('village'),
-                  label: 'บ้าน',
+                  label: context.publicText('บ้าน', 'ບ້ານ'),
                   initialValue: _village,
                   items: _villages,
                   icon: Icons.home_outlined,
@@ -902,7 +999,11 @@ class _SearchBoxState extends State<_SearchBox> {
                         ),
                       )
                     : const Icon(Icons.search),
-                label: Text(_searching ? 'กำลังค้นหา...' : 'ค้นหา'),
+                label: Text(
+                  _searching
+                      ? context.publicText('กำลังค้นหา...', 'ກຳລັງຊອກຫາ...')
+                      : context.publicText('ค้นหา', 'ຊອກຫາ'),
+                ),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -945,12 +1046,17 @@ class _SearchBoxState extends State<_SearchBox> {
                   MaterialPageRoute(builder: (_) => const MapSearchPage()),
                 ),
                 icon: const Icon(Icons.gesture),
-                label: const Text('วาดพื้นที่ค้นหาบนแผนที่'),
+                label: Text(
+                  context.publicText(
+                    'วาดพื้นที่ค้นหาบนแผนที่',
+                    'ແຕ້ມພື້ນທີ່ຊອກຫາໃນແຜນທີ່',
+                  ),
+                ),
               ),
               TextButton.icon(
                 onPressed: _clear,
                 icon: const Icon(Icons.restart_alt),
-                label: const Text('ล้างค่า'),
+                label: Text(context.publicText('ล้างค่า', 'ລ້າງຄ່າ')),
               ),
             ],
           ),
@@ -963,35 +1069,46 @@ class _SearchBoxState extends State<_SearchBox> {
 class _TrustItems extends StatelessWidget {
   const _TrustItems();
 
-  static const _items = [
-    (Icons.verified_outlined, 'ประกาศตรวจสอบแล้ว'),
-    (Icons.chat_bubble_outline, 'ติดต่อได้ทันที'),
-    (Icons.favorite_border, 'บันทึกห้องที่ชอบ'),
-  ];
-
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      if (constraints.maxWidth < 480) {
+  Widget build(BuildContext context) {
+    final items = [
+      (
+        Icons.verified_outlined,
+        context.publicText('ประกาศตรวจสอบแล้ว', 'ກວດສອບປະກາດແລ້ວ'),
+      ),
+      (
+        Icons.chat_bubble_outline,
+        context.publicText('ติดต่อได้ทันที', 'ຕິດຕໍ່ໄດ້ທັນທີ'),
+      ),
+      (
+        Icons.favorite_border,
+        context.publicText('บันทึกห้องที่ชอบ', 'ບັນທຶກຫ້ອງທີ່ມັກ'),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 480) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 8,
+            children: [
+              for (final (icon, label) in items)
+                Expanded(child: _TrustItem(icon, label, stacked: true)),
+            ],
+          );
+        }
         return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 8,
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 22,
           children: [
-            for (final (icon, label) in _items)
-              Expanded(child: _TrustItem(icon, label, stacked: true)),
+            for (final (icon, label) in items)
+              Flexible(child: _TrustItem(icon, label)),
           ],
         );
-      }
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        spacing: 22,
-        children: [
-          for (final (icon, label) in _items)
-            Flexible(child: _TrustItem(icon, label)),
-        ],
-      );
-    },
-  );
+      },
+    );
+  }
 }
 
 class _TrustItem extends StatelessWidget {
@@ -1063,7 +1180,9 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.isSearchMode ? 'ผลการค้นหา' : 'ห้องแนะนำ',
+                        widget.isSearchMode
+                            ? context.publicText('ผลการค้นหา', 'ຜົນການຊອກຫາ')
+                            : context.publicText('ห้องแนะนำ', 'ຫ້ອງແນະນຳ'),
                         style: Theme.of(context).textTheme.headlineMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
@@ -1071,11 +1190,23 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                       Text(
                         widget.isSearchMode
                             ? widget.usingCurrentLocation
-                                  ? 'แสดง 9 รายการที่อยู่ใกล้คุณที่สุด'
-                                  : 'แสดงสูงสุด 9 รายการ'
+                                  ? context.publicText(
+                                      'แสดง 9 รายการที่อยู่ใกล้คุณที่สุด',
+                                      'ສະແດງ 9 ລາຍການທີ່ຢູ່ໃກ້ທ່ານທີ່ສຸດ',
+                                    )
+                                  : context.publicText(
+                                      'แสดงสูงสุด 9 รายการ',
+                                      'ສະແດງສູງສຸດ 9 ລາຍການ',
+                                    )
                             : widget.usingCurrentLocation
-                            ? 'ที่พักใกล้ตำแหน่งปัจจุบันของคุณ • สูงสุด 9 รายการ'
-                            : 'ประกาศล่าสุด • สูงสุด 9 รายการ',
+                            ? context.publicText(
+                                'ที่พักใกล้ตำแหน่งปัจจุบันของคุณ • สูงสุด 9 รายการ',
+                                'ທີ່ພັກໃກ້ຕຳແໜ່ງປັດຈຸບັນ • ສູງສຸດ 9 ລາຍການ',
+                              )
+                            : context.publicText(
+                                'ประกาศล่าสุด • สูงสุด 9 รายการ',
+                                'ປະກາດຫຼ້າສຸດ • ສູງສຸດ 9 ລາຍການ',
+                              ),
                         style: TextStyle(color: context.colors.textMuted),
                       ),
                     ],
@@ -1089,11 +1220,31 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
               runSpacing: 10,
               children:
                   [
-                    (null, 'ทั้งหมด', Icons.grid_view_outlined),
-                    ('room', 'ห้องแถว', Icons.meeting_room_outlined),
-                    ('apartment', 'อพาร์ตเมนต์', Icons.apartment_outlined),
-                    ('house', 'บ้านเช่า', Icons.house_outlined),
-                    ('condo', 'คอนโด', Icons.location_city_outlined),
+                    (
+                      null,
+                      context.publicText('ทั้งหมด', 'ທັງໝົດ'),
+                      Icons.grid_view_outlined,
+                    ),
+                    (
+                      'room',
+                      context.publicText('ห้องแถว', 'ຫ້ອງແຖວ'),
+                      Icons.meeting_room_outlined,
+                    ),
+                    (
+                      'apartment',
+                      context.publicText('อพาร์ตเมนต์', 'ອາພາດເມັນ'),
+                      Icons.apartment_outlined,
+                    ),
+                    (
+                      'house',
+                      context.publicText('บ้านเช่า', 'ບ້ານເຊົ່າ'),
+                      Icons.house_outlined,
+                    ),
+                    (
+                      'condo',
+                      context.publicText('คอนโด', 'ຄອນໂດ'),
+                      Icons.location_city_outlined,
+                    ),
                   ].map((category) {
                     return ChoiceChip(
                       selected: selectedType == category.$1,
@@ -1112,7 +1263,12 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                   return const _ListingsSkeleton();
                 }
                 if (snapshot.hasError) {
-                  return Text('โหลดข้อมูลห้องไม่สำเร็จ: ${snapshot.error}');
+                  return Text(
+                    context.publicText(
+                      'โหลดข้อมูลห้องไม่สำเร็จ: ${snapshot.error}',
+                      'ໂຫຼດຂໍ້ມູນຫ້ອງບໍ່ສຳເລັດ: ${snapshot.error}',
+                    ),
+                  );
                 }
                 final pageData = snapshot.data;
                 final allRooms = pageData?.items ?? const [];
@@ -1122,9 +1278,16 @@ class _FeaturedSectionState extends State<_FeaturedSection> {
                           .where((room) => room.propertyType == selectedType)
                           .toList();
                 if (rooms.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 42),
-                    child: Center(child: Text('ยังไม่มีห้องที่ลงโฆษณา')),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 42),
+                    child: Center(
+                      child: Text(
+                        context.publicText(
+                          'ยังไม่มีห้องที่ลงโฆษณา',
+                          'ຍັງບໍ່ມີຫ້ອງທີ່ລົງໂຄສະນາ',
+                        ),
+                      ),
+                    ),
                   );
                 }
                 return Column(
@@ -1195,7 +1358,7 @@ class _SearchMorePrompt extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'อยากเห็นห้องมากกว่านี้?',
+          context.publicText('อยากเห็นห้องมากกว่านี้?', 'ຢາກເບິ່ງຫ້ອງເພີ່ມບໍ?'),
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -1204,7 +1367,10 @@ class _SearchMorePrompt extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'เลือกแขวง เมือง หรือบ้านในช่องค้นหา เพื่อดูห้องทั้งหมดในพื้นที่ที่คุณต้องการ',
+          context.publicText(
+            'เลือกแขวง เมือง หรือบ้านในช่องค้นหา เพื่อดูห้องทั้งหมดในพื้นที่ที่คุณต้องการ',
+            'ເລືອກແຂວງ, ເມືອງ ຫຼືບ້ານໃນຊ່ອງຊອກຫາ ເພື່ອເບິ່ງຫ້ອງໃນພື້ນທີ່ທີ່ທ່ານຕ້ອງການ',
+          ),
           style: TextStyle(color: colors.textSecondary),
         ),
       ],
@@ -1212,7 +1378,7 @@ class _SearchMorePrompt extends StatelessWidget {
     final button = FilledButton.icon(
       onPressed: onPressed,
       icon: const Icon(Icons.search),
-      label: const Text('ค้นหาห้อง'),
+      label: Text(context.publicText('ค้นหาห้อง', 'ຊອກຫາຫ້ອງ')),
       style: FilledButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       ),
@@ -1492,7 +1658,7 @@ class _Pagination extends StatelessWidget {
       runSpacing: 7,
       children: [
         IconButton.outlined(
-          tooltip: 'หน้าก่อนหน้า',
+          tooltip: context.publicText('หน้าก่อนหน้า', 'ໜ້າກ່ອນ'),
           onPressed: currentPage > 1 ? () => onChanged(currentPage - 1) : null,
           icon: const Icon(Icons.chevron_left),
         ),
@@ -1523,7 +1689,7 @@ class _Pagination extends StatelessWidget {
             ),
         ],
         IconButton.outlined(
-          tooltip: 'หน้าถัดไป',
+          tooltip: context.publicText('หน้าถัดไป', 'ໜ້າຕໍ່ໄປ'),
           onPressed: currentPage < totalPages
               ? () => onChanged(currentPage + 1)
               : null,
@@ -1542,7 +1708,10 @@ class _RoomCard extends StatelessWidget {
 
   void _openDetail(BuildContext context) => Navigator.of(context).push(
     MaterialPageRoute(
-      builder: (_) => ListingDetailPage(room: room, heroTag: _heroTag),
+      builder: (_) => PublicLanguageScope(
+        language: PublicLanguageScope.of(context),
+        child: ListingDetailPage(room: room, heroTag: _heroTag),
+      ),
     ),
   );
 
@@ -1622,7 +1791,10 @@ class _RoomCard extends StatelessWidget {
                               const SizedBox(width: 5),
                               Flexible(
                                 child: Text(
-                                  'เพิ่มโดย: ${room.submittedByName!.trim()}',
+                                  context.publicText(
+                                    'เพิ่มโดย: ${context.publicDataLabel(room.submittedByName!.trim())}',
+                                    'ເພີ່ມໂດຍ: ${context.publicDataLabel(room.submittedByName!.trim())}',
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -1673,7 +1845,7 @@ class _RoomCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        _propertyTypeLabel(room.propertyType),
+                        _propertyTypeLabel(context, room.propertyType),
                         style: TextStyle(
                           color: context.colors.primary,
                           fontSize: 12,
@@ -1693,7 +1865,7 @@ class _RoomCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            room.location,
+                            context.publicDataLabel(room.location),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -1715,7 +1887,10 @@ class _RoomCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            'ห่างจากคุณ ${_distanceLabel(room.distanceMeters!)}',
+                            context.publicText(
+                              'ห่างจากคุณ ${_distanceLabel(context, room.distanceMeters!)}',
+                              'ຫ່າງຈາກທ່ານ ${_distanceLabel(context, room.distanceMeters!)}',
+                            ),
                             style: TextStyle(
                               color: context.colors.primary,
                               fontSize: 13,
@@ -1745,7 +1920,9 @@ class _RoomCard extends StatelessWidget {
                           child: FilledButton.icon(
                             onPressed: () => _openDetail(context),
                             icon: const Icon(Icons.arrow_forward_rounded),
-                            label: const Text('รายละเอียด'),
+                            label: Text(
+                              context.publicText('รายละเอียด', 'ລາຍລະອຽດ'),
+                            ),
                             style: FilledButton.styleFrom(
                               minimumSize: const Size.fromHeight(40),
                               padding: const EdgeInsets.symmetric(
@@ -1766,19 +1943,22 @@ class _RoomCard extends StatelessWidget {
     );
   }
 
-  String _propertyTypeLabel(String value) => switch (value) {
-    'room' => 'ห้องแถว',
-    'house' => 'บ้านเช่า',
-    'condo' => 'คอนโด',
-    _ => 'อพาร์ตเมนต์',
-  };
+  String _propertyTypeLabel(BuildContext context, String value) =>
+      switch (value) {
+        'room' => context.publicText('ห้องแถว', 'ຫ້ອງແຖວ'),
+        'house' => context.publicText('บ้านเช่า', 'ບ້ານເຊົ່າ'),
+        'condo' => context.publicText('คอนโด', 'ຄອນໂດ'),
+        _ => context.publicText('อพาร์ตเมนต์', 'ອາພາດເມັນ'),
+      };
 
-  String _distanceLabel(double meters) {
-    if (meters < 1000) return '${meters.round()} ม.';
+  String _distanceLabel(BuildContext context, double meters) {
+    if (meters < 1000) {
+      return '${meters.round()} ${context.publicText('ม.', 'ມ.')}';
+    }
     final kilometers = meters / 1000;
     return kilometers < 10
-        ? '${kilometers.toStringAsFixed(1)} กม.'
-        : '${kilometers.round()} กม.';
+        ? '${kilometers.toStringAsFixed(1)} ${context.publicText('กม.', 'ກມ.')}'
+        : '${kilometers.round()} ${context.publicText('กม.', 'ກມ.')}';
   }
 }
 
@@ -1819,7 +1999,7 @@ class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'ดูล่าสุด',
+                  context.publicText('ดูล่าสุด', 'ເບິ່ງຫຼ້າສຸດ'),
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -1858,9 +2038,14 @@ class _RecentlyViewedCard extends StatelessWidget {
 
   final RentalListing room;
 
-  void _openDetail(BuildContext context) => Navigator.of(
-    context,
-  ).push(MaterialPageRoute(builder: (_) => ListingDetailPage(room: room)));
+  void _openDetail(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => PublicLanguageScope(
+        language: PublicLanguageScope.of(context),
+        child: ListingDetailPage(room: room),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1925,7 +2110,7 @@ class _RecentlyViewedCard extends StatelessWidget {
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(
-                          room.location,
+                          context.publicDataLabel(room.location),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1951,10 +2136,31 @@ class _HowItWorksSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const steps = [
-      (Icons.search_rounded, 'ค้นหา', 'เลือกทำเลและงบประมาณที่ต้องการ'),
-      (Icons.tune_rounded, 'เปรียบเทียบ', 'ดูรายละเอียดและสิ่งอำนวยความสะดวก'),
-      (Icons.chat_outlined, 'ติดต่อ', 'พูดคุยกับเจ้าของห้องได้โดยตรง'),
+    final steps = [
+      (
+        Icons.search_rounded,
+        context.publicText('ค้นหา', 'ຊອກຫາ'),
+        context.publicText(
+          'เลือกทำเลและงบประมาณที่ต้องการ',
+          'ເລືອກພື້ນທີ່ ແລະງົບປະມານ',
+        ),
+      ),
+      (
+        Icons.tune_rounded,
+        context.publicText('เปรียบเทียบ', 'ປຽບທຽບ'),
+        context.publicText(
+          'ดูรายละเอียดและสิ่งอำนวยความสะดวก',
+          'ເບິ່ງລາຍລະອຽດ ແລະສິ່ງອຳນວຍຄວາມສະດວກ',
+        ),
+      ),
+      (
+        Icons.chat_outlined,
+        context.publicText('ติดต่อ', 'ຕິດຕໍ່'),
+        context.publicText(
+          'พูดคุยกับเจ้าของห้องได้โดยตรง',
+          'ລົມກັບເຈົ້າຂອງຫ້ອງໂດຍກົງ',
+        ),
+      ),
     ];
     return Container(
       color: context.colors.surface,
@@ -1964,7 +2170,10 @@ class _HowItWorksSection extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                'หาห้องง่ายใน 3 ขั้นตอน',
+                context.publicText(
+                  'หาห้องง่ายใน 3 ขั้นตอน',
+                  'ຊອກຫາຫ້ອງງ່າຍໆ ໃນ 3 ຂັ້ນຕອນ',
+                ),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -2035,7 +2244,7 @@ class _CallToAction extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              'มีห้องแถวให้เช่า?',
+              context.publicText('มีห้องแถวให้เช่า?', 'ມີຫ້ອງແຖວໃຫ້ເຊົ່າບໍ?'),
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 color: context.colors.onPrimary,
                 fontWeight: FontWeight.bold,
@@ -2043,7 +2252,10 @@ class _CallToAction extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'ลงทะเบียนเพื่ออัปโหลดห้องแถวของคุณฟรี',
+              context.publicText(
+                'ลงทะเบียนเพื่ออัปโหลดห้องแถวของคุณฟรี',
+                'ລົງທະບຽນເພື່ອລົງປະກາດຫ້ອງແຖວຂອງທ່ານຟຣີ',
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: context.colors.borderStrong,
@@ -2053,7 +2265,12 @@ class _CallToAction extends StatelessWidget {
             const SizedBox(height: 24),
             FilledButton(
               onPressed: () => Navigator.pushNamed(context, '/contact'),
-              child: const Text('ลงทะเบียนลงประกาศฟรี'),
+              child: Text(
+                context.publicText(
+                  'ลงทะเบียนลงประกาศฟรี',
+                  'ລົງທະບຽນລົງປະກາດຟຣີ',
+                ),
+              ),
             ),
           ],
         ),
@@ -2069,10 +2286,60 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) => _PageWidth(
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        runSpacing: 8,
         children: [
           const AppLogo(),
-          const Spacer(),
+          if (kIsWeb) ...[
+            TextButton(
+              onPressed: () => launchUrl(
+                Uri.base.resolve(
+                  context.usesLao ? '/lo/contact.html' : '/th/contact.html',
+                ),
+                webOnlyWindowName: '_self',
+              ),
+              child: Text(context.publicText('ติดต่อเรา', 'ຕິດຕໍ່ພວກເຮົາ')),
+            ),
+            TextButton(
+              onPressed: () => launchUrl(
+                Uri.base.resolve(
+                  context.usesLao ? '/lo/about.html' : '/th/about.html',
+                ),
+                webOnlyWindowName: '_self',
+              ),
+              child: Text(context.publicText('เกี่ยวกับเรา', 'ກ່ຽວກັບພວກເຮົາ')),
+            ),
+            TextButton(
+              onPressed: () => launchUrl(
+                Uri.base.resolve(
+                  context.usesLao
+                      ? '/lo/rental-guide.html'
+                      : '/th/rental-guide.html',
+                ),
+                webOnlyWindowName: '_self',
+              ),
+              child: Text(
+                context.publicText('คู่มือหาห้องเช่า', 'ຄູ່ມືຊອກຫາຫ້ອງເຊົ່າ'),
+              ),
+            ),
+            TextButton(
+              onPressed: () => launchUrl(
+                Uri.base.resolve(
+                  context.usesLao ? '/lo/privacy.html' : '/th/privacy.html',
+                ),
+                webOnlyWindowName: '_self',
+              ),
+              child: Text(
+                context.publicText(
+                  'นโยบายความเป็นส่วนตัว',
+                  'ນະໂຍບາຍຄວາມເປັນສ່ວນຕົວ',
+                ),
+              ),
+            ),
+          ],
           Text(
             '© ${DateTime.now().year} Room Rental',
             style: TextStyle(color: context.colors.textMuted),
@@ -2180,7 +2447,7 @@ class _NavigateButtonState extends State<_NavigateButton>
                         _ShootingArrow(progress: _shoot.value),
                         const SizedBox(width: 8),
                         Text(
-                          'นำทาง',
+                          context.publicText('นำทาง', 'ນຳທາງ'),
                           style: TextStyle(
                             color: accent,
                             fontSize: 14,
@@ -2323,8 +2590,14 @@ class _FavoriteButtonState extends State<_FavoriteButton>
           duration: const Duration(milliseconds: 1200),
           content: Text(
             liked
-                ? 'บันทึก “${widget.room.title}” เป็นรายการโปรดแล้ว'
-                : 'นำ “${widget.room.title}” ออกจากรายการโปรดแล้ว',
+                ? context.publicText(
+                    'บันทึก “${widget.room.title}” เป็นรายการโปรดแล้ว',
+                    'ບັນທຶກ “${widget.room.title}” ໃນລາຍການທີ່ມັກແລ້ວ',
+                  )
+                : context.publicText(
+                    'นำ “${widget.room.title}” ออกจากรายการโปรดแล้ว',
+                    'ນຳ “${widget.room.title}” ອອກຈາກລາຍການທີ່ມັກແລ້ວ',
+                  ),
           ),
         ),
       );
@@ -2365,7 +2638,15 @@ class _FavoriteButtonState extends State<_FavoriteButton>
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              tooltip: liked ? 'นำออกจากรายการโปรด' : 'บันทึกเป็นรายการโปรด',
+              tooltip: liked
+                  ? context.publicText(
+                      'นำออกจากรายการโปรด',
+                      'ນຳອອກຈາກລາຍການທີ່ມັກ',
+                    )
+                  : context.publicText(
+                      'บันทึกเป็นรายการโปรด',
+                      'ບັນທຶກໃນລາຍການທີ່ມັກ',
+                    ),
               onPressed: _toggle,
               icon: Icon(
                 liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,

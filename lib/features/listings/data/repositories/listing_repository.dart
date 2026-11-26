@@ -428,7 +428,6 @@ class SupabaseListingRepository implements ListingRepository {
       sourceUrl: row['source_url'] as String?,
       contactPhone: row['contact_phone'] as String?,
       submittedByName: parsedData['submitted_by_name'] as String?,
-      submittedByEmail: parsedData['submitted_by_email'] as String?,
       advertisementEndsAt: advertisementEndsAt,
     );
   }

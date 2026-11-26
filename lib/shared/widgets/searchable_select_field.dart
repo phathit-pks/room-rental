@@ -10,6 +10,9 @@ class SearchableSelectField extends FormField<String> {
     required List<String> items,
     required ValueChanged<String?>? onChanged,
     IconData? icon,
+    String searchHint = 'พิมพ์เพื่อค้นหา',
+    String emptyLabel = 'ไม่พบรายการ',
+    String Function(String)? displayLabel,
     super.initialValue,
     super.validator,
   }) : super(
@@ -24,8 +27,13 @@ class SearchableSelectField extends FormField<String> {
                  : () async {
                      final selected = await showDialog<String>(
                        context: state.context,
-                       builder: (_) =>
-                           _SearchDialog(title: label, items: items),
+                       builder: (_) => _SearchDialog(
+                         title: label,
+                         items: items,
+                         searchHint: searchHint,
+                         emptyLabel: emptyLabel,
+                         displayLabel: displayLabel,
+                       ),
                      );
                      if (selected == null) return;
                      state.didChange(selected);
@@ -42,7 +50,11 @@ class SearchableSelectField extends FormField<String> {
                ),
                child: value == null
                    ? null
-                   : Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
+                   : Text(
+                       displayLabel?.call(value) ?? value,
+                       maxLines: 1,
+                       overflow: TextOverflow.ellipsis,
+                     ),
              ),
            );
          },
@@ -63,10 +75,19 @@ class _SearchableSelectFieldState extends FormFieldState<String> {
 }
 
 class _SearchDialog extends StatefulWidget {
-  const _SearchDialog({required this.title, required this.items});
+  const _SearchDialog({
+    required this.title,
+    required this.items,
+    required this.searchHint,
+    required this.emptyLabel,
+    this.displayLabel,
+  });
 
   final String title;
   final List<String> items;
+  final String searchHint;
+  final String emptyLabel;
+  final String Function(String)? displayLabel;
 
   @override
   State<_SearchDialog> createState() => _SearchDialogState();
@@ -81,7 +102,15 @@ class _SearchDialogState extends State<_SearchDialog> {
     final matches = query.isEmpty
         ? widget.items
         : widget.items
-              .where((item) => item.toLowerCase().contains(query))
+              .where(
+                (item) =>
+                    item.toLowerCase().contains(query) ||
+                    (widget.displayLabel
+                            ?.call(item)
+                            .toLowerCase()
+                            .contains(query) ??
+                        false),
+              )
               .toList();
 
     return AppDialog(
@@ -94,20 +123,23 @@ class _SearchDialogState extends State<_SearchDialog> {
           children: [
             TextField(
               autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'พิมพ์เพื่อค้นหา',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                hintText: widget.searchHint,
+                prefixIcon: const Icon(Icons.search),
               ),
               onChanged: (value) => setState(() => _query = value),
             ),
             const SizedBox(height: 8),
             Expanded(
               child: matches.isEmpty
-                  ? const Center(child: Text('ไม่พบรายการ'))
+                  ? Center(child: Text(widget.emptyLabel))
                   : ListView.builder(
                       itemCount: matches.length,
                       itemBuilder: (context, index) => ListTile(
-                        title: Text(matches[index]),
+                        title: Text(
+                          widget.displayLabel?.call(matches[index]) ??
+                              matches[index],
+                        ),
                         onTap: () => Navigator.pop(context, matches[index]),
                       ),
                     ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:room_rental/core/public_language.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
 import 'package:room_rental/shared/widgets/app_dialog.dart';
 import 'package:room_rental/shared/widgets/app_logo.dart';
@@ -22,7 +23,10 @@ class ClientAuthButton extends StatelessWidget {
       // Widget tests may render the app without initializing Supabase.
     }
     if (auth == null) {
-      return const OutlinedButton(onPressed: null, child: Text('เข้าสู่ระบบ'));
+      return OutlinedButton(
+        onPressed: null,
+        child: Text(context.publicText('เข้าสู่ระบบ', 'ເຂົ້າລະບົບ')),
+      );
     }
     final activeAuth = auth;
     return StreamBuilder<AuthState>(
@@ -32,7 +36,7 @@ class ClientAuthButton extends StatelessWidget {
         if (user == null) {
           return OutlinedButton(
             onPressed: () => _showSignIn(context),
-            child: const Text('เข้าสู่ระบบ'),
+            child: Text(context.publicText('เข้าสู่ระบบ', 'ເຂົ້າລະບົບ')),
           );
         }
         final metadata = user.userMetadata ?? const <String, dynamic>{};
@@ -40,7 +44,7 @@ class ClientAuthButton extends StatelessWidget {
             ?.toString();
         final avatar = metadata['avatar_url']?.toString();
         return PopupMenuButton<String>(
-          tooltip: 'บัญชีของฉัน',
+          tooltip: context.publicText('บัญชีของฉัน', 'ບັນຊີຂອງຂ້ອຍ'),
           onSelected: (value) async {
             if (value == 'sign_out') await activeAuth.signOut();
           },
@@ -53,7 +57,7 @@ class ClientAuthButton extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name ?? 'ผู้ใช้งาน',
+                      name ?? context.publicText('ผู้ใช้งาน', 'ຜູ້ໃຊ້'),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     if (user.email != null)
@@ -63,12 +67,12 @@ class ClientAuthButton extends StatelessWidget {
               ),
             ),
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'sign_out',
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.logout),
-                title: Text('ออกจากระบบ'),
+                leading: const Icon(Icons.logout),
+                title: Text(context.publicText('ออกจากระบบ', 'ອອກຈາກລະບົບ')),
               ),
             ),
           ],
@@ -94,7 +98,7 @@ class ClientAuthButton extends StatelessWidget {
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 130),
                   child: Text(
-                    name ?? 'บัญชีของฉัน',
+                    name ?? context.publicText('บัญชีของฉัน', 'ບັນຊີຂອງຂ້ອຍ'),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

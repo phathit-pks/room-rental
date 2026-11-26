@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:room_rental/core/theme/app_colors.dart';
-import 'package:room_rental/core/utils/relative_date_formatter.dart';
+import 'package:room_rental/core/public_language.dart';
 import 'package:room_rental/features/listings/domain/entities/rental_listing.dart';
 import 'package:room_rental/features/listings/presentation/pages/listing_detail_page.dart';
 
@@ -109,10 +109,8 @@ class _SponsoredListingState extends State<SponsoredListing> {
                 ),
               );
             },
-            layoutBuilder: (current, previous) => Stack(
-              fit: StackFit.expand,
-              children: [...previous, ?current],
-            ),
+            layoutBuilder: (current, previous) =>
+                Stack(fit: StackFit.expand, children: [...previous, ?current]),
             child: KeyedSubtree(
               key: ValueKey(room.id),
               child: _content(context, room),
@@ -206,7 +204,7 @@ class _SponsoredListingState extends State<SponsoredListing> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        room.location,
+                        context.publicDataLabel(room.location),
                         style: TextStyle(color: context.colors.textMuted),
                       ),
                     ),
@@ -222,7 +220,7 @@ class _SponsoredListingState extends State<SponsoredListing> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'อัปเดต${formatRelativeDate(DateTime.now())}',
+                      context.publicText('อัปเดตวันนี้', 'ອັບເດດມື້ນີ້'),
                       style: TextStyle(color: context.colors.textMuted),
                     ),
                   ],
@@ -232,10 +230,13 @@ class _SponsoredListingState extends State<SponsoredListing> {
                   spacing: 16,
                   runSpacing: 8,
                   children: room.amenities.isEmpty
-                      ? const [
+                      ? [
                           _Amenity(
                             icon: Icons.verified_outlined,
-                            label: 'ประกาศตรวจสอบแล้ว',
+                            label: context.publicText(
+                              'ประกาศตรวจสอบแล้ว',
+                              'ກວດສອບປະກາດແລ້ວ',
+                            ),
                           ),
                         ]
                       : room.amenities
@@ -243,7 +244,7 @@ class _SponsoredListingState extends State<SponsoredListing> {
                             .map(
                               (item) => _Amenity(
                                 icon: Icons.check_circle_outline,
-                                label: item,
+                                label: context.publicDataLabel(item),
                               ),
                             )
                             .toList(),
@@ -257,10 +258,15 @@ class _SponsoredListingState extends State<SponsoredListing> {
                       onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ListingDetailPage(room: room),
+                          builder: (_) => PublicLanguageScope(
+                            language: PublicLanguageScope.of(context),
+                            child: ListingDetailPage(room: room),
+                          ),
                         ),
                       ),
-                      child: const Text('ดูรายละเอียด'),
+                      child: Text(
+                        context.publicText('ดูรายละเอียด', 'ເບິ່ງລາຍລະອຽດ'),
+                      ),
                     ),
                   ],
                 ),
@@ -304,7 +310,10 @@ class _SponsoredBadge extends StatelessWidget {
       children: [
         Icon(Icons.campaign_outlined, size: 17, color: context.colors.primary),
         const SizedBox(width: 6),
-        const Text('โฆษณา', style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          context.publicText('โฆษณา', 'ໂຄສະນາ'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
       ],
     ),
   );
